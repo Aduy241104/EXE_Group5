@@ -104,7 +104,8 @@ app.use("/api/disputes", disputeRoutes);
 app.use("/api/products", reviewRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
-app.use("/api", sellerRoutes);
+app.use("/api/sellers", profileStatsRoutes);
+
 
 // ⚠️ voucherRoutes của bạn tự khai báo prefix bên trong (vd: /api/my/vouchers, /api/my/vouchers/preview, ...)
 // nên giữ nguyên app.use(voucherRoutes) để không phá cấu trúc sẵn có.

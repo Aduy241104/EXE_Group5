@@ -1,16 +1,38 @@
-import { Star } from "lucide-react";
+// src/components/product/SellerCard.jsx
+import { Link } from "react-router-dom";
+import {
+  MapPin,
+  MessageCircle,
+  PackageCheck,
+  Phone,
+  ShieldCheck,
+  Star,
+} from "lucide-react";
 
-export default function SellerCard({ seller }) {
-  // --- thay toàn bộ SellerCard cũ bằng phiên bản dưới đây ---
-// Nhận thêm prop `reviewStats` để hiển thị (avg & count) nếu có.
-function SellerCard({ seller, reviewStats }) {
-  const avg = Number((reviewStats && reviewStats.avg) ?? seller?.avg_rating ?? 0);
-  const total = Number((reviewStats && reviewStats.count) ?? seller?.reviews_count ?? 0);
+/* ---------- Utils (giữ cách build ảnh y như ProductDetail) ---------- */
+const API =
+  import.meta.env.VITE_API ||
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
 
-  // Hiển thị tài khoản ngân hàng + tên NH (nếu có)
-  const bankDisplay = seller?.bank_account
-    ? `${seller.bank_account} • ${seller.bank_name || ""}`.trim()
-    : "Chưa có tài khoản ngân hàng";
+const buildImg = (u) => {
+  if (!u) return "/logo.png";
+  if (/^https?:\/\//i.test(u)) return u;
+  return `${API}/${String(u).replace(/^\/+/, "")}`;
+};
+
+/* ---------- Seller card (y nguyên logic trước đó) ---------- */
+export default function SellerCard({ seller, reviewStats }) {
+  const avg = Number(
+    (reviewStats && reviewStats.avg) ??
+      seller?.avg_rating ??
+      0
+  );
+  const total = Number(
+    (reviewStats && reviewStats.count) ??
+      seller?.reviews_count ??
+      0
+  );
 
   return (
     <div className="rounded-2xl border bg-orange-50/40 p-5 shadow-inner">
@@ -27,17 +49,14 @@ function SellerCard({ seller, reviewStats }) {
             </Link>
             <ShieldCheck className="h-4 w-4 text-emerald-600" title="Đã xác minh" />
           </div>
-
-          {/* Điện thoại */}
           <div className="text-sm text-gray-600 flex items-center gap-2">
-            <PhoneIcon className="h-4 w-4 text-orange-500" />
+            <Phone className="h-4 w-4 text-orange-500" />
             <span>{seller?.phone || "Chưa có số"}</span>
           </div>
         </div>
       </div>
 
       <div className="grid gap-2 text-sm text-gray-700 md:grid-cols-2 lg:grid-cols-3">
-        {/* Tỉ lệ + tốc độ phản hồi + rating tổng */}
         <div className="flex items-center gap-2">
           <MessageCircle className="h-4 w-4 text-orange-500" />
           Tỉ lệ phản hồi: <b>{Math.round(Number(seller?.response_rate || 0))}%</b>
@@ -51,27 +70,9 @@ function SellerCard({ seller, reviewStats }) {
           Đánh giá trung bình: <b>{avg.toFixed(1)}/5</b>
           <span className="text-gray-500">({total})</span>
         </div>
-
-        {/* Địa chỉ */}
         <div className="md:col-span-2 lg:col-span-3 mt-1 flex items-center gap-2">
           <MapPin className="h-4 w-4 text-orange-500" />
           <span>{seller?.address || "Địa chỉ: chưa cập nhật"}</span>
-        </div>
-
-        {/* Trường / MSSV */}
-        <div className="flex items-center gap-2">
-          <GraduationCap className="h-4 w-4 text-orange-500" />
-          Trường: <b>{seller?.school || "Chưa cập nhật"}</b>
-        </div>
-        <div className="flex items-center gap-2">
-          <IdCard className="h-4 w-4 text-orange-500" />
-          MSSV: <b>{seller?.student_id || "Chưa cập nhật"}</b>
-        </div>
-
-        {/* Tài khoản ngân hàng */}
-        <div className="md:col-span-2 lg:col-span-3 flex items-center gap-2">
-          <Landmark className="h-4 w-4 text-orange-500" />
-          <span>{bankDisplay}</span>
         </div>
       </div>
 
@@ -85,5 +86,4 @@ function SellerCard({ seller, reviewStats }) {
       </div>
     </div>
   );
-}
 }
