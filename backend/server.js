@@ -23,8 +23,15 @@ import profileRoutes from "./routes/profileRoutes.js";
 import disputeRoutes from "./routes/disputeRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
-import messageRoutes from "./routes/messageRoutes.js"; // ✅ bật
+import messageRoutes from "./routes/messageRoutes.js";
 import voucherRoutes from "./routes/voucherRoutes.js";
+import marketRoutes from "./routes/marketRoutes.js";
+import productExtraRoutes from "./routes/productExtraRoutes.js";
+import productImagesRoutes from "./routes/productImagesRoutes.js";
+import profileStatsRoutes from "./routes/profileStatsRoutes.js";
+// import sellerRoutes from "./routes/profileRoutes.js";
+import sellerRoutes from "./routes/sellerRoutes.js";
+
 
 dotenv.config();
 
@@ -58,10 +65,7 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
-app.use((req, res, next) => {
-  res.header("Vary", "Origin");
-  next();
-});
+app.use((req, res, next) => { res.header("Vary", "Origin"); next(); });
 
 /* ------------- security & parsers ------------- */
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
@@ -78,12 +82,12 @@ const __dirname = path.dirname(__filename);
 const uploadDir = path.join(__dirname, "uploads");
 const avatarDir = path.join(uploadDir, "avatars");
 const reviewDir = path.join(uploadDir, "reviews");
-[uploadDir, avatarDir, reviewDir].forEach((d) => {
-  if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
-});
+[uploadDir, avatarDir, reviewDir].forEach((d) => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); });
 
 /* ------------- static ------------- */
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 
 /* ------------- mount routes ------------- */
 app.use("/api/auth", authRoutes);
@@ -91,22 +95,30 @@ app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/cart", cartRoutes);
+app.use("/api/profile", profileStatsRoutes);
+
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/disputes", disputeRoutes);
-app.use("/api/reviews", reviewRoutes);
+app.use("/api/products", reviewRoutes);
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/messages", messageRoutes); // ✅ bật API tin nhắn
+app.use("/api/messages", messageRoutes);
+app.use("/api", sellerRoutes);
+
+// ⚠️ voucherRoutes của bạn tự khai báo prefix bên trong (vd: /api/my/vouchers, /api/my/vouchers/preview, ...)
+// nên giữ nguyên app.use(voucherRoutes) để không phá cấu trúc sẵn có.
 app.use(voucherRoutes);
+
+app.use("/api/market", marketRoutes);
+app.use("/api/products", productExtraRoutes);
+app.use("/api/products", productImagesRoutes);
+app.use("/api/profile", profileStatsRoutes);
 
 /* ------------- socket.io ------------- */
 const server = http.createServer(app);
 const io = new Server(server, { cors: corsOptions });
-
-/* ⭐️⭐️⭐️ THÊM DÒNG NÀY: cho phép truy cập io trong routes qua req.app.get("io") */
-app.set("io", io);
-// -------------------------------------
+app.set("io", io); // cho phép routes truy cập socket bằng req.app.get("io")
 
 // Namespace chat:  ws://host/chat
 const chat = io.of("/chat");
@@ -114,34 +126,16 @@ chat.on("connection", (socket) => {
   const { userId } = socket.handshake.auth || {};
   socket.data.userId = userId;
 
-  socket.on("join", ({ conversationId }) => {
-    if (conversationId) socket.join(`c:${conversationId}`);
-  });
-
-  socket.on("typing", ({ conversationId, isTyping }) => {
-    if (!conversationId) return;
-    socket.to(`c:${conversationId}`).emit("typing", { userId: socket.data.userId, isTyping });
-  });
-
-  socket.on("message:send", ({ conversationId, message }) => {
-    if (!conversationId || !message) return;
-    socket.to(`c:${conversationId}`).emit("message:new", { message });
-  });
-
-  socket.on("read", ({ conversationId, lastMessageId }) => {
-    if (!conversationId) return;
-    socket.to(`c:${conversationId}`).emit("read", { lastMessageId });
-  });
+  socket.on("join", ({ conversationId }) => { if (conversationId) socket.join(`c:${conversationId}`); });
+  socket.on("typing", ({ conversationId, isTyping }) => { if (conversationId) socket.to(`c:${conversationId}`).emit("typing", { userId: socket.data.userId, isTyping }); });
+  socket.on("message:send", ({ conversationId, message }) => { if (conversationId && message) socket.to(`c:${conversationId}`).emit("message:new", { message }); });
+  socket.on("read", ({ conversationId, lastMessageId }) => { if (conversationId) socket.to(`c:${conversationId}`).emit("read", { lastMessageId }); });
 });
 
-// kênh product rating/review (nếu cần)
+// Kênh sản phẩm (nếu cần)
 io.on("connection", (socket) => {
-  socket.on("product:join", ({ productId }) => {
-    if (productId) socket.join(`product:${productId}`);
-  });
-  socket.on("product:leave", ({ productId }) => {
-    if (productId) socket.leave(`product:${productId}`);
-  });
+  socket.on("product:join", ({ productId }) => { if (productId) socket.join(`product:${productId}`); });
+  socket.on("product:leave", ({ productId }) => { if (productId) socket.leave(`product:${productId}`); });
 });
 
 /* ------------- start ------------- */

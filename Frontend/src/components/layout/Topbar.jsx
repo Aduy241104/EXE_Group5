@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Heart, MessageCircle, PlusCircle, User, ListChecks, BarChart3, LogOut,
-  Shield, CheckCircle2, Menu, Bell, Trash2, CheckCheck, Megaphone, TicketPercent // + added TicketPercent
+  Shield, CheckCircle2, Menu, Bell, Trash2, CheckCheck, Megaphone, TicketPercent
 } from "lucide-react";
 import { io } from "socket.io-client";
 import { API } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Animations
+// Animations (vẫn giữ để sau này dùng nếu cần)
 const sloganContainer = {
   initial: { opacity: 0, x: -40 },
   animate: { opacity: 1, x: 0, transition: { duration: 0.6, ease: "easeOut", staggerChildren: 0.15 } },
@@ -49,9 +49,10 @@ export default function Topbar() {
 
   const dropdownRef = useRef(null);
   const nbRef = useRef(null);
-
   const location = useLocation();
   const navigate = useNavigate();
+
+  const isHome = location.pathname === "/"; // vẫn giữ biến này nếu sau cần dùng
 
   const onToggleSidebar = () => {
     window.dispatchEvent(new CustomEvent("sidebar:toggle"));
@@ -68,6 +69,12 @@ export default function Topbar() {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
+  // clear suggest/search khi đổi route
+  useEffect(() => {
+    setSuggestions([]);
+    setSearchTerm("");
+  }, [location.pathname]);
+
   // search suggest
   useEffect(() => {
     if (!searchTerm.trim()) { setSuggestions([]); return; }
@@ -76,7 +83,8 @@ export default function Topbar() {
         setLoading(true);
         const res = await api.get("/api/products/search", { params: { q: searchTerm } });
         setSuggestions((res.data || []).slice(0, 6));
-      } catch {} finally { setLoading(false); }
+      } catch {}
+      finally { setLoading(false); }
     }, 300);
     return () => clearTimeout(t);
   }, [searchTerm]);
@@ -115,7 +123,7 @@ export default function Topbar() {
 
   return (
     <header className="bg-gradient-to-r from-orange-500 to-yellow-400 text-white shadow-md sticky top-0 z-[60]">
-      {/* Hàng chính: logo + actions (đã bỏ search) */}
+      {/* Hàng chính: logo + actions */}
       <div className="py-3">
         <div className="container mx-auto flex items-center justify-between px-6 relative">
           {/* trái */}
@@ -231,67 +239,113 @@ export default function Topbar() {
               </div>
             )}
 
-            {/* user menu */}
+            {/* user menu – có animation */}
             {user ? (
               <div className="relative" ref={dropdownRef}>
-                <button onClick={() => setOpen(!open)} className="flex items-center gap-2 focus:outline-none">
-                  <span className="hidden md:block font-medium">Xin chào, {user.username || user.email}</span>
-                  <User className="w-8 h-8" />
-                  {isAdmin && (
-                    <CheckCircle2 className="w-4 h-4 text-green-300 ml-1" title="Admin verified" />
-                  )}
+                <button
+                  onClick={() => setOpen((v) => !v)}
+                  className="group flex items-center gap-2 focus:outline-none"
+                  aria-haspopup="menu"
+                  aria-expanded={open}
+                >
+                  <span className="hidden md:block font-medium">
+                    Xin chào, {user.username || user.email}
+                  </span>
+                  <div className="relative">
+                    <User className="w-8 h-8 transition-transform group-hover:scale-105" />
+                    {isAdmin && (
+                      <CheckCircle2
+                        className="w-4 h-4 text-green-400 absolute -right-1 -bottom-1"
+                        title="Admin verified"
+                      />
+                    )}
+                  </div>
+                  <motion.span
+                    animate={{ rotate: open ? 180 : 0 }}
+                    transition={{ duration: 0.25 }}
+                  >
+                    ▾
+                  </motion.span>
                 </button>
 
-                {open && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white text-gray-700 rounded-lg shadow-lg z-[80] overflow-hidden">
-                    <Link to="/profile" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100" onClick={() => setOpen(false)}>
-                      <User className="w-4 h-4 text-sky-500" /> Hồ sơ chi tiết
-                    </Link>
-                    <Link to="/myposts" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100" onClick={() => setOpen(false)}>
-                      <PlusCircle className="w-4 h-4 text-emerald-500" /> Tin đã đăng
-                    </Link>
-                    <Link to="/favorites" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100" onClick={() => setOpen(false)}>
-                      <Heart className="w-4 h-4 text-pink-500" /> Tin yêu thích
-                    </Link>
-                    <Link to="/orders/buyer" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100" onClick={() => setOpen(false)}>
-                      <ListChecks className="w-4 h-4 text-indigo-600" /> Đơn hàng của tôi
-                    </Link>
-                    <Link to="/seller/orders" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100" onClick={() => setOpen(false)}>
-                      <ListChecks className="w-4 h-4 text-purple-600" /> Quản lý đơn bán
-                    </Link>
-                    <Link to="/seller/dashboard" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100" onClick={() => setOpen(false)}>
-                      <BarChart3 className="w-4 h-4 text-orange-500" /> Bảng điều khiển bán hàng
-                    </Link>
-                    {/* + NEW: Seller – Voucher của tôi */}
-                    <Link to="/seller/vouchers" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100" onClick={() => setOpen(false)}>
-                      <TicketPercent className="w-4 h-4 text-emerald-600" /> Voucher của tôi
-                    </Link>
-                    {isAdmin && (
-                      <>
-                        <Link to="/admin/users" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 font-medium" onClick={() => setOpen(false)}>
-                          <Shield className="w-4 h-4 text-indigo-600" /> Quản trị người dùng
-                        </Link>
-                        <Link to="/admin/notify" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 font-medium" onClick={() => setOpen(false)}>
-                          <Megaphone className="w-4 h-4 text-orange-600" /> Gửi thông báo
-                        </Link>
-                        {/* + NEW: Admin – nhóm Voucher */}
-                        <div className="px-4 pt-2 pb-1 text-xs uppercase tracking-wide text-gray-400">Voucher</div>
-                        <Link to="/admin/vouchers" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100" onClick={() => setOpen(false)}>
-                          <TicketPercent className="w-4 h-4 text-teal-600" /> Quản trị voucher
-                        </Link>
-                        <Link to="/admin/vouchers/new" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100" onClick={() => setOpen(false)}>
-                          <PlusCircle className="w-4 h-4 text-emerald-600" /> Tạo voucher
-                        </Link>
-                      </>
-                    )}
-                    <button
-                      onClick={() => { logout(); setOpen(false); }}
-                      className="w-full flex items-center gap-2 text-left px-4 py-2 text-red-500 hover:bg-gray-100"
+                {/* backdrop bắt click ngoài khi open */}
+                <AnimatePresence>
+                  {open && (
+                    <motion.button
+                      key="backdrop"
+                      className="fixed inset-0 z-[59] cursor-default" // dưới z của header
+                      onClick={() => setOpen(false)}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 0 }}
+                      exit={{ opacity: 0 }}
+                    />
+                  )}
+                </AnimatePresence>
+
+                <AnimatePresence>
+                  {open && (
+                    <motion.div
+                      key="menu"
+                      className="absolute right-0 mt-2 w-56 bg-white text-gray-700 rounded-lg shadow-lg z-[80] overflow-hidden ring-1 ring-black/5 origin-top-right"
+                      initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                      transition={{ type: "spring", stiffness: 350, damping: 25 }}
                     >
-                      <LogOut className="w-4 h-4" /> Đăng xuất
-                    </button>
-                  </div>
-                )}
+                      <MenuLink to="/profile" onClick={() => setOpen(false)}>
+                        <User className="w-4 h-4 text-sky-500" /> Hồ sơ chi tiết
+                      </MenuLink>
+                      <MenuLink to="/myposts" onClick={() => setOpen(false)}>
+                        <PlusCircle className="w-4 h-4 text-emerald-500" /> Tin đã đăng
+                      </MenuLink>
+                      <MenuLink to="/favorites" onClick={() => setOpen(false)}>
+                        <Heart className="w-4 h-4 text-pink-500" /> Tin yêu thích
+                      </MenuLink>
+                      <MenuLink to="/orders/buyer" onClick={() => setOpen(false)}>
+                        <ListChecks className="w-4 h-4 text-indigo-600" /> Đơn hàng của tôi
+                      </MenuLink>
+                      <MenuLink to="/seller/orders" onClick={() => setOpen(false)}>
+                        <ListChecks className="w-4 h-4 text-purple-600" /> Quản lý đơn bán
+                      </MenuLink>
+                      <MenuLink to="/seller/dashboard" onClick={() => setOpen(false)}>
+                        <BarChart3 className="w-4 h-4 text-orange-500" /> Bảng điều khiển bán hàng
+                      </MenuLink>
+                      <MenuLink to="/seller/vouchers" onClick={() => setOpen(false)}>
+                        <TicketPercent className="w-4 h-4 text-emerald-600" /> Voucher của tôi
+                      </MenuLink>
+
+                      {isAdmin && (
+                        <>
+                          <div className="px-4 pt-2 pb-1 text-xs uppercase tracking-wide text-gray-400">
+                            Quản trị
+                          </div>
+                          <MenuLink to="/admin/users" onClick={() => setOpen(false)} bold>
+                            <Shield className="w-4 h-4 text-indigo-600" /> Quản trị người dùng
+                          </MenuLink>
+                          <MenuLink to="/admin/notify" onClick={() => setOpen(false)} bold>
+                            <Megaphone className="w-4 h-4 text-orange-600" /> Gửi thông báo
+                          </MenuLink>
+                          <div className="px-4 pt-2 pb-1 text-xs uppercase tracking-wide text-gray-400">
+                            Voucher
+                          </div>
+                          <MenuLink to="/admin/vouchers" onClick={() => setOpen(false)}>
+                            <TicketPercent className="w-4 h-4 text-teal-600" /> Quản trị voucher
+                          </MenuLink>
+                          <MenuLink to="/admin/vouchers/new" onClick={() => setOpen(false)}>
+                            <PlusCircle className="w-4 h-4 text-emerald-600" /> Tạo voucher
+                          </MenuLink>
+                        </>
+                      )}
+
+                      <button
+                        onClick={() => { logout(); setOpen(false); }}
+                        className="w-full flex items-center gap-2 text-left px-4 py-2 text-red-500 hover:bg-gray-100"
+                      >
+                        <LogOut className="w-4 h-4" /> Đăng xuất
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ) : (
               <div className="flex items-center gap-2">
@@ -303,88 +357,25 @@ export default function Topbar() {
         </div>
       </div>
 
-      {/* Slogan + SEARCH Ở GIỮA */}
+      {/* ⛔ HeaderHero / Slogan + Search ở Topbar đã ẨN HOÀN TOÀN (đã gỡ khối dưới) */}
+      {/*
       <AnimatePresence mode="wait">
-        {location.pathname === "/" && (
-          <motion.div
-            key="home-slogan"
-            className="border-t border-white/20"
-            variants={sloganContainer}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-          >
-            <div className="container mx-auto px-6 py-6 overflow-hidden">
-              <motion.div className="text-center" variants={sloganContainer}>
-                <motion.h1
-                  variants={sloganLine}
-                  className="text-4xl md:text-5xl font-extrabold text-white drop-shadow mb-2"
-                >
-                  UniTrade –{" "}
-                  <span className="text-yellow-100">An Toàn - Tiện Lợi – Tin Cậy</span>
-                </motion.h1>
-
-                <motion.p variants={sloganLine} className="text-lg md:text-xl text-white/90">
-                  Sàn Thương Mại Điện Tử Dành Cho Sinh Viên
-                </motion.p>
-
-                {/* SEARCH CENTERED */}
-                <div className="mt-4 flex justify-center">
-                  <form
-                    onSubmit={handleSearch}
-                    className="relative flex bg-white rounded-full shadow overflow-hidden w-full max-w-[720px]"
-                  >
-                    <input
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="🔍 Tìm kiếm sản phẩm..."
-                      className="flex-1 px-4 py-2 text-gray-700 focus:outline-none"
-                    />
-                    <button
-                      type="submit"
-                      className="bg-orange-600 px-5 font-semibold hover:bg-orange-700 transition"
-                    >
-                      Tìm
-                    </button>
-
-                    {suggestions.length > 0 && (
-                      <ul className="absolute top-full left-0 w-full bg-white text-gray-800 rounded-lg shadow-lg z-[70] mt-1 overflow-hidden">
-                        {loading ? (
-                          <li className="px-4 py-3 text-center text-sm text-gray-500">
-                            Đang tìm kiếm...
-                          </li>
-                        ) : (
-                          suggestions.map((p) => (
-                            <li
-                              key={p.id}
-                              className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                              onClick={() => navigate(`/products/${p.id}`)}
-                            >
-                              <img
-                                src={buildImg(p.image_url || p.image || p.thumbnail)}
-                                alt={p.name}
-                                className="w-10 h-10 rounded object-cover border"
-                                onError={(e) => { e.currentTarget.src = "/logo.png"; }}
-                              />
-                              <div className="min-w-0">
-                                <p className="font-medium truncate">{p.name}</p>
-                                <p className="text-xs text-gray-500">
-                                  {new Intl.NumberFormat("vi-VN").format(p.price || 0)} đ
-                                </p>
-                              </div>
-                            </li>
-                          ))
-                        )}
-                      </ul>
-                    )}
-                  </form>
-                </div>
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
+        {!isHome && ( ... toàn bộ block slogan + search ... )}
       </AnimatePresence>
+      */}
     </header>
+  );
+}
+
+/* helper cho item trong dropdown */
+function MenuLink({ to, onClick, children, bold = false }) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 ${bold ? "font-medium" : ""}`}
+    >
+      {children}
+    </Link>
   );
 }

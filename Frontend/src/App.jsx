@@ -1,3 +1,4 @@
+// src/App.jsx
 import { Routes, Route, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
@@ -16,7 +17,7 @@ import AdminUsers from "@/pages/AdminUsers";
 import AdminNotify from "@/pages/AdminNotify";
 import Messages from "@/pages/Messages";
 import MyPosts from "@/pages/MyPosts";
-import CreatePost from "@/pages/CreatePost";
+import CreatePost from "@/pages/CreatePost";       // giữ nguyên đường dẫn bạn đang dùng
 import Favorites from "@/pages/Favorites";
 import Profile from "@/pages/Profile";
 import ProductDetail from "@/components/product/ProductDetail";
@@ -26,7 +27,8 @@ import SellerOrders from "@/pages/SellerOrders";
 import BuyerOrders from "@/pages/BuyerOrders";
 import OrderDetail from "@/pages/OrderDetail";
 
-// thêm:
+
+// Voucher pages đã có sẵn trong source của bạn:
 import VouchersPage from "@/pages/seller/VouchersPage.jsx";
 import VoucherList from "@/pages/admin/VoucherList.jsx";
 import VoucherEdit from "@/pages/admin/VoucherEdit.jsx";
@@ -38,6 +40,9 @@ import PrivateRoute from "@/components/common/PrivateRoute";
 import PageWrapper from "@/components/common/PageWrapper";
 import AdminChat from "@/components/chat/AdminChat";
 
+// === NEW: EditPost (bổ sung file nếu bạn chưa có)
+import EditPost from "@/pages/posts/EditPost.jsx"; // nếu bạn đặt chỗ khác, chỉnh lại import cho khớp
+
 export default function App() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const location = useLocation();
@@ -48,188 +53,56 @@ export default function App() {
 
   return (
     <AuthProvider>
-      {/* Khung bố cục toàn trang */}
       <div className="min-h-screen flex flex-col bg-white">
-        {/* Sidebar dạng overlay */}
         <Sidebar
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
         />
-
-        {/* Topbar */}
         <Topbar />
-
-        {/* Nội dung chiếm phần còn lại */}
         <main className="flex-1">
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               {/* Public */}
-              <Route
-                path="/"
-                element={
-                  <PageWrapper>
-                    <Home selectedCategory={selectedCategory} />
-                  </PageWrapper>
-                }
-              />
-              <Route
-                path="/login"
-                element={
-                  <PageWrapper>
-                    <Login />
-                  </PageWrapper>
-                }
-              />
-              <Route
-                path="/register"
-                element={
-                  <PageWrapper>
-                    <Register />
-                  </PageWrapper>
-                }
-              />
-              <Route
-                path="/products"
-                element={
-                  <PageWrapper>
-                    <ProductGrid />
-                  </PageWrapper>
-                }
-              />
-              <Route
-                path="/products/:id"
-                element={
-                  <PageWrapper>
-                    <ProductDetail />
-                  </PageWrapper>
-                }
-              />
+              <Route path="/" element={<PageWrapper><Home selectedCategory={selectedCategory} /></PageWrapper>} />
+              <Route path="/login" element={<PageWrapper><Login/></PageWrapper>} />
+              <Route path="/register" element={<PageWrapper><Register/></PageWrapper>} />
+              <Route path="/products" element={<PageWrapper><ProductGrid/></PageWrapper>} />
+              <Route path="/products/:id" element={<PageWrapper><ProductDetail/></PageWrapper>} />
 
               {/* Private */}
-              <Route
-                path="/favorites"
-                element={
-                  <PrivateRoute>
-                    <PageWrapper>
-                      <Favorites />
-                    </PageWrapper>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/messages"
-                element={
-                  <PrivateRoute>
-                    <PageWrapper>
-                      <Messages />
-                    </PageWrapper>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/myposts"
-                element={
-                  <PrivateRoute>
-                    <PageWrapper>
-                      <MyPosts />
-                    </PageWrapper>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/post/create"
-                element={
-                  <PrivateRoute>
-                    <PageWrapper>
-                      <CreatePost />
-                    </PageWrapper>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/profile"
-                element={
-                  <PrivateRoute>
-                    <PageWrapper>
-                      <Profile />
-                    </PageWrapper>
-                  </PrivateRoute>
-                }
-              />
+              <Route path="/favorites" element={<PrivateRoute><PageWrapper><Favorites/></PageWrapper></PrivateRoute>} />
+              <Route path="/messages" element={<PrivateRoute><PageWrapper><Messages/></PageWrapper></PrivateRoute>} />
+              <Route path="/myposts" element={<PrivateRoute><PageWrapper><MyPosts/></PageWrapper></PrivateRoute>} />
+              <Route path="/post/create" element={<PrivateRoute><PageWrapper><CreatePost/></PageWrapper></PrivateRoute>} />
+              {/* NEW: Edit post */}
+              <Route path="/post/edit/:id" element={<PrivateRoute><PageWrapper><EditPost/></PageWrapper></PrivateRoute>} />
+              <Route path="/profile" element={<PrivateRoute><PageWrapper><Profile/></PageWrapper></PrivateRoute>} />
 
               {/* Admin */}
-              <Route
-                path="/admin/users"
-                element={
-                  <PrivateRoute>
-                    <PageWrapper>
-                      <AdminUsers />
-                    </PageWrapper>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/admin/notify"
-                element={
-                  <PrivateRoute>
-                    <PageWrapper>
-                      <AdminNotify />
-                    </PageWrapper>
-                  </PrivateRoute>
-                }
-              />
+              <Route path="/admin/users" element={<PrivateRoute><PageWrapper><AdminUsers/></PageWrapper></PrivateRoute>} />
+              <Route path="/admin/notify" element={<PrivateRoute><PageWrapper><AdminNotify/></PageWrapper></PrivateRoute>} />
 
               {/* Seller */}
-              <Route
-                path="/seller/dashboard"
-                element={
-                  <PrivateRoute>
-                    <PageWrapper>
-                      <SellerDashboard />
-                    </PageWrapper>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/seller/orders"
-                element={
-                  <PrivateRoute>
-                    <PageWrapper>
-                      <SellerOrders />
-                    </PageWrapper>
-                  </PrivateRoute>
-                }
-              />
-
+              <Route path="/seller/dashboard" element={<PrivateRoute><PageWrapper><SellerDashboard/></PageWrapper></PrivateRoute>} />
+              <Route path="/seller/orders" element={<PrivateRoute><PageWrapper><SellerOrders/></PageWrapper></PrivateRoute>} />
+              <Route path="/post/edit/:id" element={<PrivateRoute><PageWrapper><EditPost/></PageWrapper></PrivateRoute>} />
               {/* Orders */}
-              <Route
-                path="/orders/buyer"
-                element={
-                  <PrivateRoute>
-                    <PageWrapper>
-                      <BuyerOrders />
-                    </PageWrapper>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/orders/:id"
-                element={
-                  <PrivateRoute>
-                    <PageWrapper>
-                      <OrderDetail />
-                    </PageWrapper>
-                  </PrivateRoute>
-                }
-              />
+              <Route path="/orders/buyer" element={<PrivateRoute><PageWrapper><BuyerOrders/></PageWrapper></PrivateRoute>} />
+              <Route path="/orders/:id" element={<PrivateRoute><PageWrapper><OrderDetail/></PageWrapper></PrivateRoute>} />
+
+              {/* NEW: Seller vouchers */}
+              <Route path="/seller/vouchers" element={<PrivateRoute><PageWrapper><VouchersPage/></PageWrapper></PrivateRoute>} />
+
+              {/* NEW: Admin vouchers */}
+              <Route path="/admin/vouchers" element={<PrivateRoute><PageWrapper><VoucherList/></PageWrapper></PrivateRoute>} />
+              <Route path="/admin/vouchers/new" element={<PrivateRoute><PageWrapper><VoucherEdit mode="create"/></PageWrapper></PrivateRoute>} />
+              <Route path="/admin/vouchers/:id" element={<PrivateRoute><PageWrapper><VoucherEdit/></PageWrapper></PrivateRoute>} />
+              <Route path="/admin/vouchers/:id/assign" element={<PrivateRoute><PageWrapper><VoucherAssign/></PageWrapper></PrivateRoute>} />
+              <Route path="/admin/vouchers/:id/redemptions" element={<PrivateRoute><PageWrapper><VoucherRedemptions/></PageWrapper></PrivateRoute>} />
             </Routes>
           </AnimatePresence>
         </main>
-
-        {/* Footer luôn ở đáy */}
         <Footer />
-
-        {/* Chat admin popup */}
         <AdminChat />
       </div>
     </AuthProvider>

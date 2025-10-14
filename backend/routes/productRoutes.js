@@ -13,22 +13,18 @@ import { redeemAfterCreatePost } from "../services/feeService.js";
 const router = express.Router();
 
 /* ================= Upload ================= */
-const upload = diskUploader("products"); // có limit + fileFilter trong utils/uploader.js
+const upload = diskUploader("products");
 
 /* ================= Helpers ================= */
 const ABS = process.env.BASE_URL || "http://localhost:5000";
-
-// ✅ Chuẩn hoá ảnh: filename | "uploads/..." | "/uploads/..." | http(s) | "\" (Windows)
 const img = (filename) => {
   if (!filename) return null;
-  let raw = String(filename).replace(/\\/g, "/");        // windows -> posix
-  if (/^https?:\/\//i.test(raw)) return raw;            // đã là URL tuyệt đối
-  raw = raw.replace(/^\/?uploads\//i, "");              // bỏ tiền tố uploads/ nếu có
-  // Nếu chuỗi không có subfolder (dữ liệu cũ chỉ là 'abc.jpg') -> mặc định products/
+  let raw = String(filename).replace(/\\/g, "/");
+  if (/^https?:\/\//i.test(raw)) return raw;
+  raw = raw.replace(/^\/?uploads\//i, "");
   if (!/^[^/]+\/[^/]+/.test(raw)) raw = `products/${raw}`;
   return `${ABS}/uploads/${raw}`;
 };
-
 const toProduct = (row) => ({ ...row, image_url: img(row.image_url) });
 
 /* =============== CREATE (transaction + redeem) =============== */
@@ -41,7 +37,6 @@ router.post(
     const client = await pool.connect();
     try {
       const { name, price, description, category_id, voucher_code } = req.body;
-      // 🔧 Lưu vào DB dạng 'products/<filename>' để trùng static '/uploads'
       const imageFilename = req.file ? `products/${req.file.filename}` : null;
 
       if (!name || !price || !description || !category_id) {
@@ -66,11 +61,7 @@ router.post(
       });
 
       await client.query("COMMIT");
-
-      return res.status(201).json({
-        ...toProduct(post),
-        fee,
-      });
+      return res.status(201).json({ ...toProduct(post), fee });
     } catch (e) {
       await client.query("ROLLBACK");
       console.error("create product with fee:", e);
@@ -194,7 +185,7 @@ router.get("/search", async (req, res) => {
   }
 });
 
-/* =============== FEATURED (đặt TRƯỚC /:id) =============== */
+/* =============== FEATURED =============== */
 router.get("/featured", async (req, res) => {
   try {
     const lim = Math.min(20, Math.max(1, parseInt(req.query.limit || "10", 10)));
@@ -213,71 +204,68 @@ router.get("/featured", async (req, res) => {
   }
 });
 
-/* =============== REVIEWS (đặt TRƯỚC /:id) =============== */
-const reviewUpload = diskUploader("reviews");
+/* =============== REVIEWS =============== */
+// const reviewUpload = diskUploader("reviews");
 
-router.get("/:id/reviews", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const r = await pool.query(
-      `SELECT pr.id, pr.rating, pr.content, pr.images, pr.created_at,
-              u.username, u.avatar_url
-         FROM product_reviews pr
-    LEFT JOIN users u ON u.id = pr.user_id
-        WHERE pr.product_id = $1
-     ORDER BY pr.created_at DESC
-        LIMIT 100`,
-      [id]
-    );
-    return res.json(r.rows);
-  } catch (e) {
-    console.error("reviews list:", e);
-    return res.status(500).json({ error: "Server error" });
-  }
-});
+// router.get("/:id/reviews", async (req, res) => {
+//   try {
+//     const r = await pool.query(
+//       `SELECT pr.id, pr.rating, pr.content, pr.images, pr.created_at,
+//               u.username, u.avatar_url
+//          FROM product_reviews pr
+//     LEFT JOIN users u ON u.id = pr.user_id
+//         WHERE pr.product_id = $1
+//      ORDER BY pr.created_at DESC
+//         LIMIT 100`,
+//       [req.params.id]
+//     );
+//     res.json(r.rows);
+//   } catch (e) {
+//     console.error("reviews list:", e);
+//     res.status(500).json({ error: "Server error" });
+//   }
+// });
 
-router.post(
-  "/:id/reviews",
-  authMiddleware,
-  reviewUpload.array("images", 6),
-  async (req, res) => {
-    try {
-      const productId = Number(req.params.id);
-      const { rating, content } = req.body;
+// router.post(
+//   "/:id/reviews",
+//   authMiddleware,
+//   reviewUpload.array("images", 6),
+//   async (req, res) => {
+//     try {
+//       const productId = Number(req.params.id);
+//       const { rating, content } = req.body;
+//       const files = (req.files || []).map((f) => `reviews/${f.filename}`);
+//       await pool.query(
+//         `INSERT INTO product_reviews (product_id, user_id, rating, content, images)
+//          VALUES ($1,$2,$3,$4,$5)`,
+//         [productId, req.user.id, rating, content, JSON.stringify(files)]
+//       );
 
-      // TODO: Lưu review + images vào product_reviews
+//       const agg = await pool.query(
+//         `SELECT AVG(rating)::numeric(10,2) AS avg, COUNT(*)::int AS count
+//            FROM product_reviews
+//           WHERE product_id = $1`,
+//         [productId]
+//       );
+//       const rating_avg = Number(agg.rows[0].avg || 0);
+//       const rating_count = Number(agg.rows[0].count || 0);
 
-      const agg = await pool.query(
-        `SELECT AVG(rating)::numeric(10,2) AS avg, COUNT(*)::int AS count
-           FROM product_reviews
-          WHERE product_id = $1`,
-        [productId]
-      );
-      const rating_avg = Number(agg.rows[0].avg || 0);
-      const rating_count = Number(agg.rows[0].count || 0);
-      await pool.query(
-        `UPDATE products
-            SET rating_avg=$1, rating_count=$2, updated_at=NOW()
-          WHERE id=$3`,
-        [rating_avg, rating_count, productId]
-      );
+//       await pool.query(
+//         `UPDATE products
+//             SET rating_avg=$1, rating_count=$2, updated_at=NOW()
+//           WHERE id=$3`,
+//         [rating_avg, rating_count, productId]
+//       );
 
-      const io = req.app.get("io");
-      io?.to(`product:${productId}`).emit("review:created", {
-        product_id: productId,
-        rating_avg,
-        rating_count,
-      });
+//       res.status(201).json({ ok: true });
+//     } catch (e) {
+//       console.error("create review:", e);
+//       res.status(500).json({ error: "Server error" });
+//     }
+//   }
+// );
 
-      return res.status(201).json({ ok: true });
-    } catch (e) {
-      console.error("create review:", e);
-      return res.status(500).json({ error: "Server error" });
-    }
-  }
-);
-
-/* =============== LIST with pagination =============== */
+/* =============== LIST (pagination) =============== */
 router.get("/", async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page || "1", 10));
@@ -309,15 +297,12 @@ router.get("/", async (req, res) => {
        LIMIT $${p++} OFFSET $${p++}`;
     const countSql = `SELECT COUNT(*)::int AS total FROM products ${where}`;
 
-    const listParams = [...params, limit, offset];
-    const countParams = [...params];
-
     const [listRes, countRes] = await Promise.all([
-      pool.query(listSql, listParams),
-      pool.query(countSql, countParams),
+      pool.query(listSql, [...params, limit, offset]),
+      pool.query(countSql, params),
     ]);
 
-    return res.json({
+    res.json({
       items: listRes.rows.map(toProduct),
       total: countRes.rows[0].total,
       page,
@@ -326,7 +311,35 @@ router.get("/", async (req, res) => {
     });
   } catch (e) {
     console.error("list products:", e);
-    return res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* =============== MY PRODUCTS (for MyPosts page) =============== */
+/**
+ * ⚠️ Đặt TRƯỚC route "/:id" để tránh bắt nhầm "mine" thành id.
+ */
+router.get("/mine", authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `
+       SELECT
+        p.id,
+        p.name,
+        p.price,
+        CASE WHEN COALESCE(p.is_available, TRUE) THEN 'active' ELSE 'hidden' END AS status,
+        p.created_at,
+        p.image_url AS image_url             -- ✅ chỉ dùng image_url
+      FROM products p
+      WHERE p.user_id = $1
+      ORDER BY p.created_at DESC
+      `,
+      [req.user.id]
+    );
+    res.json(rows.map(toProduct));
+  } catch (err) {
+    console.error("GET /api/products/mine error:", err);
+    res.status(500).json({ error: "Failed to fetch my products" });
   }
 });
 
@@ -334,22 +347,20 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT p.id, p.name, p.price, p.description, p.image_url, p.created_at,
-              c.id AS category_id, c.name AS category_name, c.slug AS category_slug,
-              u.id AS seller_id,
-              u.username AS seller_name, u.phone AS seller_phone
+      `SELECT p.*, c.id AS category_id, c.name AS category_name, c.slug AS category_slug,
+              u.id AS seller_id, u.username AS seller_name, u.phone AS seller_phone
          FROM products p
          JOIN categories c ON p.category_id = c.id
-         JOIN users u      ON p.user_id     = u.id
+         JOIN users u ON p.user_id = u.id
         WHERE p.id = $1`,
       [req.params.id]
     );
     if (!rows.length)
       return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
-    return res.json(toProduct(rows[0]));
+    res.json(toProduct(rows[0]));
   } catch (err) {
     console.error("detail product:", err);
-    return res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -371,24 +382,32 @@ router.put(
       if (!check.rowCount)
         return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
       if (Number(check.rows[0].user_id) !== Number(userId)) {
-        return res
-          .status(403)
-          .json({ error: "Bạn không có quyền sửa sản phẩm này" });
+        return res.status(403).json({ error: "Không có quyền sửa sản phẩm này" });
       }
 
-      const { name, price, description, category_id } = req.body;
-      // 🔧 Đồng bộ: lưu dạng 'products/<filename>'
+      const {
+        name,
+        price,
+        description,
+        category_id,
+        quantity,
+        is_available,
+        attributes,
+      } = req.body;
       const newImageFilename = req.file ? `products/${req.file.filename}` : null;
 
       const { rows } = await pool.query(
         `UPDATE products
-            SET name        = COALESCE($1, name),
-                price       = COALESCE($2, price),
-                description = COALESCE($3, description),
-                image_url   = COALESCE($4, image_url),
-                category_id = COALESCE($5, category_id),
-                updated_at  = NOW()
-          WHERE id = $6 AND user_id = $7
+            SET name         = COALESCE($1, name),
+                price        = COALESCE($2, price),
+                description  = COALESCE($3, description),
+                image_url    = COALESCE($4, image_url),
+                category_id  = COALESCE($5, category_id),
+                quantity     = COALESCE($6, quantity),
+                is_available = COALESCE($7, is_available),
+                attributes   = COALESCE($8::jsonb, attributes),
+                updated_at   = NOW()
+          WHERE id = $9 AND user_id = $10
         RETURNING *`,
         [
           name ?? null,
@@ -396,14 +415,17 @@ router.put(
           description ?? null,
           newImageFilename ?? null,
           category_id ?? null,
+          quantity ?? null,
+          typeof is_available === "boolean" ? is_available : null,
+          attributes ? JSON.stringify(attributes) : null,
           productId,
           userId,
         ]
       );
-      return res.json(toProduct(rows[0]));
+      res.json(toProduct(rows[0]));
     } catch (e) {
       console.error("update product:", e);
-      return res.status(500).json({ error: "Server error" });
+      res.status(500).json({ error: "Server error" });
     }
   }
 );
@@ -429,20 +451,12 @@ router.delete("/:id", authMiddleware, async (req, res) => {
 
     if (!isAdmin && Number(ownerId) !== Number(userId)) {
       await client.query("ROLLBACK");
-      return res
-        .status(403)
-        .json({ error: "Bạn không có quyền xóa sản phẩm này" });
+      return res.status(403).json({ error: "Bạn không có quyền xóa sản phẩm này" });
     }
 
-    await client.query(`DELETE FROM product_reviews WHERE product_id = $1`, [
-      productId,
-    ]);
-    await client.query(`DELETE FROM order_items WHERE product_id = $1`, [
-      productId,
-    ]);
-    await client.query(`DELETE FROM favorites WHERE product_id = $1`, [
-      productId,
-    ]);
+    await client.query(`DELETE FROM product_reviews WHERE product_id = $1`, [productId]);
+    await client.query(`DELETE FROM order_items WHERE product_id = $1`, [productId]);
+    await client.query(`DELETE FROM favorites WHERE product_id = $1`, [productId]);
 
     const del = await client.query(
       `DELETE FROM products WHERE id = $1 RETURNING image_url`,
@@ -451,26 +465,74 @@ router.delete("/:id", authMiddleware, async (req, res) => {
 
     await client.query("COMMIT");
 
-    // Xoá file vật lý (nếu có)
     const filename = del.rows[0]?.image_url;
     if (filename) {
       const filePath = path.join(process.cwd(), "uploads", filename);
       import("fs").then(({ unlink }) => unlink(filePath, () => {}));
     }
 
-    return res.json({
-      ok: true,
-      message: isAdmin ? "Đã xóa (admin)" : "Đã xóa",
-    });
+    res.json({ ok: true, message: isAdmin ? "Đã xóa (admin)" : "Đã xóa" });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("delete product:", err);
-    return res
-      .status(500)
-      .json({ error: "Server error", details: err.message });
+    res.status(500).json({ error: "Server error", details: err.message });
   } finally {
     client.release();
   }
 });
+
+/* =============== RENEW (gia hạn tin) =============== */
+router.post("/:id/renew", authMiddleware, async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE products
+         SET expires_at = NOW() + INTERVAL '30 days'
+       WHERE id = $1 AND user_id = $2`,
+      [req.params.id, req.user.id]
+    );
+    res.json({ renewed: true });
+  } catch (err) {
+    console.error("POST /api/products/:id/renew error:", err);
+    res.status(500).json({ error: "Failed to renew product" });
+  }
+});
+
+// THÊM MỚI trong productRoutes.js
+router.get("/:id/price-range", async (req, res) => {
+  try {
+    const months = Math.max(1, Math.min(12, parseInt(req.query.months || "3", 10)));
+    // Tìm category của sản phẩm
+    const one = await pool.query(`SELECT category_id FROM products WHERE id=$1`, [req.params.id]);
+    if (!one.rowCount) return res.status(404).json({ error: "Not found" });
+    const catId = one.rows[0].category_id;
+
+    // Lấy giá từ các đơn hàng đã thanh toán thuộc category này trong N tháng
+    const q = await pool.query(
+      `
+      SELECT oi.price
+      FROM order_items oi
+      JOIN products p ON p.id = oi.product_id
+      JOIN orders o ON o.id = oi.order_id
+      WHERE p.category_id = $1
+        AND o.status IN ('paid','completed')
+        AND o.created_at >= NOW() - ($2 || ' months')::interval
+      `,
+      [catId, months]
+    );
+
+    const prices = q.rows.map(r => Number(r.price || 0)).filter(x => x > 0).sort((a,b)=>a-b);
+    if (prices.length === 0) return res.json({ min: 0, max: 0, median: 0, count: 0 });
+
+    const min = prices[0];
+    const max = prices[prices.length - 1];
+    const median = prices[Math.floor(prices.length / 2)];
+    res.json({ min, max, median, count: prices.length });
+  } catch (e) {
+    console.error("price-range:", e);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 
 export default router;

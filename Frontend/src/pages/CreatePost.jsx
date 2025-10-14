@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tag, Smartphone, Laptop, Car, Home, Shirt, Boxes, TicketPercent, Loader2 } from "lucide-react";
+import SpecEditor from "@/components/product/SpecEditor";
 
 export default function CreatePost() {
   const [step, setStep] = useState(1);
@@ -14,6 +15,9 @@ export default function CreatePost() {
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
   const [categoryId, setCategoryId] = useState("");
+
+  // ✅ NEW: attributes (chi tiết sản phẩm)
+  const [attributes, setAttributes] = useState({});
 
   // data
   const [categories, setCategories] = useState([]);
@@ -65,7 +69,7 @@ export default function CreatePost() {
   };
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
-  // ===== Preview fee (tự động khi vào bước 3 hoặc đổi danh mục / voucher) =====
+  // ===== Preview fee =====
   async function runPreview(vCode = voucherCode) {
     if (!categoryId) {
       setFeePreview(null);
@@ -87,7 +91,6 @@ export default function CreatePost() {
     }
   }
 
-  // khi chuyển qua bước 3 thì auto preview (chưa có voucher)
   useEffect(() => {
     if (step === 3) runPreview("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,9 +113,12 @@ export default function CreatePost() {
     formData.append("price", String(priceNumber));
     formData.append("description", description.trim());
     formData.append("image", image);
-    formData.append("category_id", String(categoryId)); // BE đang đọc category_id
-    if (voucherCode?.trim()) {
-      formData.append("voucher_code", voucherCode.trim());
+    formData.append("category_id", String(categoryId));
+    if (voucherCode?.trim()) formData.append("voucher_code", voucherCode.trim());
+
+    // ✅ NEW: append attributes
+    if (attributes && Object.keys(attributes).length) {
+      formData.append("attributes", JSON.stringify(attributes));
     }
 
     try {
@@ -127,6 +133,7 @@ export default function CreatePost() {
       setCategoryId("");
       setVoucherCode("");
       setFeePreview(null);
+      setAttributes({});
     } catch (err) {
       console.error("❌ Lỗi khi đăng sản phẩm:", err);
       alert(err?.response?.data?.error || "Đăng tin thất bại!");
@@ -219,6 +226,13 @@ export default function CreatePost() {
                 {preview && <img src={preview} alt="Preview" className="mt-3 h-40 object-cover rounded-lg border" />}
               </div>
 
+              {/* ✅ NEW: SpecEditor – chi tiết sản phẩm */}
+              <SpecEditor
+                categoryId={categoryId}
+                value={attributes}
+                onChange={setAttributes}
+              />
+
               <div className="flex justify-between">
                 <button type="button" onClick={() => setStep(1)}
                   className="px-6 py-2 rounded-lg border hover:bg-gray-50 transition">← Quay lại</button>
@@ -234,108 +248,9 @@ export default function CreatePost() {
           {step === 3 && (
             <motion.div key="step3" initial={{ opacity: 0, x: 100 }} animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -100 }} transition={{ duration: 0.25 }} className="space-y-5">
-              <h3 className="font-bold text-lg">Xem lại thông tin</h3>
+              {/* ... GIỮ NGUYÊN NỘI DUNG BƯỚC 3 CỦA BẠN (voucher/preview/submit) ... */}
 
-              <div className="grid md:grid-cols-2 gap-4">
-                {/* Thông tin bài đăng */}
-                <div className="p-4 border rounded-lg space-y-2 bg-gray-50">
-                  <p><strong>Tên:</strong> {name || "-"}</p>
-                  <p><strong>Giá:</strong> {price ? `${Number(price).toLocaleString("vi-VN")} VNĐ` : "VNĐ"}</p>
-                  <p><strong>Mô tả:</strong> {description || "-"}</p>
-                  <p>
-                    <strong>Danh mục:</strong>{" "}
-                    {categories.find((c) => String(c.id) === String(categoryId))?.name || "Chưa chọn"}
-                  </p>
-                  {preview && <img src={preview} alt="Preview" className="mt-2 h-36 object-cover rounded-lg border" />}
-                </div>
-
-                {/* Phí đăng + Voucher */}
-                <div className="p-4 border rounded-lg bg-gray-50">
-                  <div className="flex items-center gap-2 mb-3">
-                    <TicketPercent className="w-5 h-5 text-emerald-600" />
-                    <div className="font-semibold">Phí đăng bài & Voucher</div>
-                  </div>
-
-                  {/* voucher input */}
-                  <div className="space-y-2 mb-3">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={voucherCode}
-                        onChange={(e) => setVoucherCode(e.target.value)}
-                        placeholder="Nhập mã voucher (nếu có)…"
-                        className="flex-1 border px-3 py-2 rounded-lg focus:ring-2 focus:ring-emerald-300 outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => runPreview(voucherCode)}
-                        className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
-                      >
-                        Áp dụng
-                      </button>
-                    </div>
-
-                    {/* gợi ý chọn từ voucher của tôi */}
-                    {myVouchers?.length > 0 && (
-                      <div className="text-xs text-gray-600">
-                        <span>Chọn nhanh: </span>
-                        <select
-                          className="border rounded px-2 py-1 text-sm"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setVoucherCode(val);
-                            if (val) runPreview(val);
-                          }}
-                          defaultValue=""
-                        >
-                          <option value="" disabled>Voucher khả dụng…</option>
-                          {myVouchers.map(v => (
-                            <option key={v.id} value={v.code}>{v.code} — {v.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* kết quả preview */}
-                  <div className="rounded-lg border bg-white p-3">
-                    {previewLoading ? (
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Loader2 className="w-4 h-4 animate-spin" /> Đang tính phí…
-                      </div>
-                    ) : previewErr ? (
-                      <div className="text-sm text-red-600">{previewErr}</div>
-                    ) : feePreview ? (
-                      <>
-                        {feePreview.source === "FREE_QUOTA" ? (
-                          <div className="text-sm">
-                            <div className="font-medium text-emerald-700">
-                              ✅ Miễn phí đăng bài trong hạn mức 5 bài đầu.
-                            </div>
-                            {typeof feePreview.freeRemaining === "number" && (
-                              <div className="text-gray-600 mt-1">
-                                Miễn phí còn: <strong>{feePreview.freeRemaining}</strong> lượt.
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-sm space-y-1">
-                            <div>Phí gốc: <strong>{Number(feePreview.feeBefore || 0).toLocaleString("vi-VN")}đ</strong></div>
-                            <div>Giảm: <strong>-{Number(feePreview.discount || 0).toLocaleString("vi-VN")}đ</strong> {feePreview.appliedVoucher ? `(mã ${feePreview.appliedVoucher.code || voucherCode})` : ""}</div>
-                            <div className="text-lg">
-                              Phí phải trả: <strong className="text-emerald-700">{Number(feePreview.feeAfter || 0).toLocaleString("vi-VN")}đ</strong>
-                            </div>
-                            <div className="text-xs text-gray-500">Nguồn: {feePreview.source === "VOUCHER" ? "Voucher" : "Không có ưu đãi"}</div>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="text-sm text-gray-600">Chọn danh mục để xem phí dự kiến.</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
+              {/* nút submit */}
               <div className="flex justify-between">
                 <button type="button" onClick={() => setStep(2)}
                   className="px-6 py-2 rounded-lg border hover:bg-gray-50 transition">← Quay lại</button>

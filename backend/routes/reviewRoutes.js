@@ -1,7 +1,9 @@
+// backend/routes/reviewRoutes.js
 import { Router } from "express";
 import multer from "multer";
 import path from "path";
 import crypto from "crypto";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import pool from "../models/db.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
@@ -11,6 +13,11 @@ const router = Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const uploadsDir = path.resolve(__dirname, "..", "uploads", "reviews");
+
+// ✅ Đảm bảo tồn tại thư mục uploads/reviews
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
@@ -40,7 +47,18 @@ router.get("/:productId/reviews", async (req, res) => {
        ORDER BY r.created_at DESC`,
       [productId]
     );
-    res.json(rows);
+
+    // images hiện là jsonb ⇒ luôn trả về mảng
+    const normalized = rows.map((r) => ({
+      ...r,
+      images: Array.isArray(r.images)
+        ? r.images
+        : (typeof r.images === "string"
+            ? (() => { try { return JSON.parse(r.images); } catch { return []; } })()
+            : [])
+    }));
+
+    res.json(normalized);
   } catch (err) {
     console.error("❌ Lỗi khi lấy review:", err);
     res.status(500).json({ message: "Lỗi máy chủ" });
@@ -58,10 +76,11 @@ router.post("/:productId/reviews", authMiddleware, upload.array("images", 5), as
 
     const imageUrls = (req.files || []).map((f) => `/uploads/reviews/${path.basename(f.path)}`);
 
+    // ✅ Cách A: insert JSONB (images::jsonb) + JSON.stringify(imageUrls)
     await pool.query(
       `INSERT INTO product_reviews (product_id, user_id, rating, content, images)
-       VALUES ($1, $2, $3, $4, $5::text[])`,
-      [productId, req.user.id, Number(rating), content, imageUrls.length ? imageUrls : null]
+       VALUES ($1, $2, $3, $4, $5::jsonb)`,
+      [productId, req.user.id, Number(rating), content, JSON.stringify(imageUrls)]
     );
 
     res.json({ message: "Đã tạo review thành công!" });
@@ -71,7 +90,7 @@ router.post("/:productId/reviews", authMiddleware, upload.array("images", 5), as
   }
 });
 
-/* Optional backward-compat: still accept POST /api/reviews */
+/* Optional backward-compat: vẫn chấp nhận POST /api/reviews */
 router.post("/", authMiddleware, upload.array("images", 5), async (req, res) => {
   try {
     const { product_id, rating, content } = req.body;
@@ -79,14 +98,16 @@ router.post("/", authMiddleware, upload.array("images", 5), async (req, res) => 
       return res.status(400).json({ message: "Thiếu dữ liệu" });
     }
     const imageUrls = (req.files || []).map((f) => `/uploads/reviews/${path.basename(f.path)}`);
+
+    // ✅ JSONB như trên
     await pool.query(
       `INSERT INTO product_reviews (product_id, user_id, rating, content, images)
-       VALUES ($1, $2, $3, $4, $5::text[])`,
-      [product_id, req.user.id, Number(rating), content, imageUrls.length ? imageUrls : null]
+       VALUES ($1, $2, $3, $4, $5::jsonb)`,
+      [product_id, req.user.id, Number(rating), content, JSON.stringify(imageUrls)]
     );
     res.json({ message: "OK" });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Lỗi khi tạo review (legacy):", err);
     res.status(500).json({ message: "Không thể tạo review." });
   }
 });
