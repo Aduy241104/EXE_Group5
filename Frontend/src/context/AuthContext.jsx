@@ -61,6 +61,16 @@ export default function AuthProvider({ children }) {
     return data.user;
   };
 
+
+  const logingg = async (data) => {
+    if (data?.token) {
+      localStorage.setItem("token", data.token);
+      setToken(data.token);
+    }
+    setUser(data.user || null);
+    return data.user;
+  };
+
   const logout = async () => {
     try { await api.post("/api/auth/logout"); } catch {}
     localStorage.removeItem("token");
@@ -107,6 +117,7 @@ export default function AuthProvider({ children }) {
       logout,
       updateProfile,
       changePassword,
+      logingg
     }),
     [user, token, ready]
   );

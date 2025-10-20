@@ -31,6 +31,7 @@ import productImagesRoutes from "./routes/productImagesRoutes.js";
 import profileStatsRoutes from "./routes/profileStatsRoutes.js";
 // import sellerRoutes from "./routes/profileRoutes.js";
 import sellerRoutes from "./routes/sellerRoutes.js";
+import googleRouter from "./routes/googleRoute.js"
 
 
 dotenv.config();
@@ -96,6 +97,8 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/profile", profileStatsRoutes);
+
+app.use("/api/google", googleRouter);
 
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/users", userRoutes);

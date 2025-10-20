@@ -2,6 +2,8 @@ import { useState, useContext } from "react";
 import { AuthContext } from "@/context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, Loader2 } from "lucide-react";
+import GoogleBtn from "../components/google/GoogleBtn";
+
 
 export default function Login() {
   const { login } = useContext(AuthContext);
@@ -34,22 +36,22 @@ export default function Login() {
           Đăng nhập
         </h2>
 
-        {error && (
+        { error && (
           <p className="text-red-500 text-sm mb-4 text-center font-medium">
-            {error}
+            { error }
           </p>
-        )}
+        ) }
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={ handleSubmit } className="space-y-5">
           <div>
             <label className="block font-medium mb-1">Email</label>
             <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-orange-500">
-              <Mail className="text-gray-400 mr-2" size={18} />
+              <Mail className="text-gray-400 mr-2" size={ 18 } />
               <input
                 type="email"
                 className="w-full outline-none"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={ email }
+                onChange={ (e) => setEmail(e.target.value) }
                 placeholder="Nhập email"
                 required
               />
@@ -59,12 +61,12 @@ export default function Login() {
           <div>
             <label className="block font-medium mb-1">Mật khẩu</label>
             <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-orange-500">
-              <Lock className="text-gray-400 mr-2" size={18} />
+              <Lock className="text-gray-400 mr-2" size={ 18 } />
               <input
                 type="password"
                 className="w-full outline-none"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={ password }
+                onChange={ (e) => setPassword(e.target.value) }
                 placeholder="Nhập mật khẩu"
                 required
               />
@@ -73,19 +75,20 @@ export default function Login() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={ loading }
             className="w-full bg-orange-500 text-white py-3 rounded-lg font-semibold hover:bg-orange-600 transition shadow-md flex justify-center items-center"
           >
-            {loading ? (
-              <Loader2 className="animate-spin" size={20} />
+            { loading ? (
+              <Loader2 className="animate-spin" size={ 20 } />
             ) : (
               "Đăng nhập"
-            )}
+            ) }
           </button>
         </form>
 
+       <GoogleBtn/>
         <p className="text-center text-sm mt-6 text-gray-600">
-          Chưa có tài khoản?{" "}
+          Chưa có tài khoản?{ " " }
           <Link
             to="/register"
             className="text-orange-600 font-semibold hover:underline"
