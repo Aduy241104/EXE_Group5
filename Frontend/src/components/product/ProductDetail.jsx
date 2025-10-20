@@ -5,8 +5,11 @@ import api from "@/lib/api";
 import { motion } from "framer-motion";
 import {
   Loader2, MessageCircle, ShoppingCart, MapPin, User, Phone, Star,
-  Image as ImageIcon, ShieldCheck, PackageCheck
+  Image as ImageIcon
 } from "lucide-react";
+
+/* ✅ NEW: tách SellerCard thành file riêng */
+import SellerCard from "./SellerCard";
 
 /* ---------- Utils ---------- */
 const API =
@@ -195,65 +198,6 @@ function ReviewList({ items }) {
   );
 }
 
-/* ---------- Seller card ---------- */
-function SellerCard({ seller, reviewStats }) {
-  const avg = Number((reviewStats && reviewStats.avg) ?? seller?.avg_rating ?? 0);
-  const total = Number((reviewStats && reviewStats.count) ?? seller?.reviews_count ?? 0);
-
-  return (
-    <div className="rounded-2xl border bg-orange-50/40 p-5 shadow-inner">
-      <div className="mb-3 flex items-center gap-3">
-        <img
-          src={buildImg(seller?.avatar_url)}
-          className="h-14 w-14 rounded-full border-2 border-amber-300 object-cover"
-          onError={(e) => (e.currentTarget.src = "/logo.png")}
-        />
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Link to={`/profile/${seller?.id}`} className="truncate text-lg font-semibold text-gray-800 hover:text-orange-600">
-              {seller?.username || "Người bán"}
-            </Link>
-            <ShieldCheck className="h-4 w-4 text-emerald-600" title="Đã xác minh" />
-          </div>
-          <div className="text-sm text-gray-600 flex items-center gap-2">
-            <Phone className="h-4 w-4 text-orange-500" />
-            <span>{seller?.phone || "Chưa có số"}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-2 text-sm text-gray-700 md:grid-cols-2 lg:grid-cols-3">
-        <div className="flex items-center gap-2">
-          <MessageCircle className="h-4 w-4 text-orange-500" />
-          Tỉ lệ phản hồi: <b>{Math.round(Number(seller?.response_rate || 0))}%</b>
-        </div>
-        <div className="flex items-center gap-2">
-          <PackageCheck className="h-4 w-4 text-orange-500" />
-          Tốc độ phản hồi: <b>{Math.round((seller?.response_time_sec || 0) / 60)} phút</b>
-        </div>
-        <div className="flex items-center gap-2">
-          <Star className="h-4 w-4 text-yellow-500" />
-          Đánh giá trung bình: <b>{avg.toFixed(1)}/5</b>
-          <span className="text-gray-500">({total})</span>
-        </div>
-        <div className="md:col-span-2 lg:col-span-3 mt-1 flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-orange-500" />
-          <span>{seller?.address || "Địa chỉ: chưa cập nhật"}</span>
-        </div>
-      </div>
-
-      <div className="mt-3 flex gap-2">
-        <Link to={`/profile/${seller?.id}`} className="rounded-xl border border-orange-400 px-4 py-2 text-orange-600 hover:bg-orange-50">
-          Xem hồ sơ
-        </Link>
-        <Link to="/messages" className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 px-4 py-2 font-semibold text-white hover:from-orange-600 hover:to-amber-500">
-          Nhắn tin
-        </Link>
-      </div>
-    </div>
-  );
-}
-
 /* ---------- Helper: tự tính summary khi API không trả ---------- */
 function computeSummaryFromList(list) {
   const items = Array.isArray(list) ? list : [];
@@ -283,7 +227,7 @@ export default function ProductDetail() {
   const [seller, setSeller] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // luôn giữ vị trí hook ổn định
+  // giữ ổn định hook order
   const reviewStats = useMemo(
     () => ({ avg: Number(summary?.avg || 0), count: Number(summary?.count || 0) }),
     [summary]
@@ -301,39 +245,13 @@ export default function ProductDetail() {
     }
   };
 
-  // ---- NEW: hàm lấy seller có fallback nhiều endpoint
-  const fetchSellerWithFallback = async (sellerId) => {
-    const tryGet = async (url) => {
-      try {
-        const r = await api.get(url);
-        return r.data;
-      } catch {
-        return null;
-      }
-    };
-
-    // 1) metrics cũ
-    let data = await tryGet(`/api/sellers/${sellerId}/metrics`);
-    if (data) return data;
-
-    // 2) profile stats (route mình đã đưa trước đó)
-    data = await tryGet(`/api/profile/${sellerId}/stats`);
-    if (data) return { id: sellerId, ...data }; // gộp để SellerCard dùng được
-
-    // 3) user profile (ít nhất có username/phone/address/avatar_url)
-    data = await tryGet(`/api/users/${sellerId}`) || await tryGet(`/api/user/${sellerId}`);
-    if (data) return data;
-
-    return null;
-  };
-
   useEffect(() => {
     let mounted = true;
+
     (async () => {
       try {
         setLoading(true);
 
-        // 1) product
         const pRes = await api.get(`/api/products/${id}`);
         if (!mounted) return;
         const p = pRes.data;
@@ -341,11 +259,12 @@ export default function ProductDetail() {
 
         const sellerId = p?.seller_id ?? p?.user_id ?? null;
 
-        // 2) song song: reviews, price-range, seller (với fallback)
-        const [rRes, prRes, sellerData] = await Promise.all([
+        const [rRes, prRes, sRes] = await Promise.all([
           api.get(`/api/products/${id}/reviews`).catch(() => ({ data: [] })),
           api.get(`/api/products/${id}/price-range?months=3`).catch(() => ({ data: null })),
-          sellerId ? fetchSellerWithFallback(sellerId) : Promise.resolve(null),
+          sellerId
+            ? api.get(`/api/sellers/${sellerId}/metrics`).catch(() => ({ data: null }))
+            : Promise.resolve({ data: null }),
         ]);
 
         if (!mounted) return;
@@ -354,16 +273,16 @@ export default function ProductDetail() {
         const rItems = Array.isArray(rData.items) ? rData.items : (Array.isArray(rData) ? rData : []);
         setReviews(rItems);
         setSummary(rData.summary || computeSummaryFromList(rItems));
-        setRange(prRes?.data || null);
 
-        // nếu không có gì, ít nhất set id để SellerCard còn render trống
-        setSeller(sellerData || (sellerId ? { id: sellerId } : null));
+        setRange(prRes?.data || null);
+        setSeller(sRes?.data || null);
       } catch (e) {
         console.error("Load detail error:", e?.response?.data || e);
       } finally {
         if (mounted) setLoading(false);
       }
     })();
+
     return () => { mounted = false; };
   }, [id]);
 

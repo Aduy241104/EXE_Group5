@@ -78,25 +78,40 @@ router.put("/avatar", authMiddleware, upload.single("avatar"), async (req, res) 
   }
 });
 
-/* Giữ các route cũ nếu nơi khác đang dùng */
+/* --- Cập nhật thông tin cá nhân (bao gồm ngân hàng + STK) --- */
 router.put("/me", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { username, phone, address } = req.body;
+    const {
+      name,
+      phone,
+      address,
+      school,
+      student_id,
+      bank_account,
+      bank_name,
+    } = req.body;
 
-    const { rows } = await pool.query(
+    const result = await pool.query(
       `UPDATE users
-          SET username = COALESCE($1, username),
-              phone    = COALESCE($2, phone),
-              address  = COALESCE($3, address)
-        WHERE id = $4
-      RETURNING id, username, email, phone, address`,
-      [username ?? null, phone ?? null, address ?? null, userId]
+         SET name = COALESCE($1, name),
+             phone = COALESCE($2, phone),
+             address = COALESCE($3, address),
+             school = COALESCE($4, school),
+             student_id = COALESCE($5, student_id),
+             bank_account = COALESCE($6, bank_account),
+             bank_name = COALESCE($7, bank_name)
+       WHERE id = $8
+       RETURNING id, username, email, role, name, phone, address, school, student_id, bank_account, bank_name, avatar_url`,
+      [name, phone, address, school, student_id, bank_account, bank_name, userId]
     );
 
-    res.json(rows[0]);
+    return res.json({
+      message: "Cập nhật hồ sơ thành công",
+      user: result.rows[0],
+    });
   } catch (err) {
-    console.error("❌ Lỗi cập nhật profile:", err.message);
+    console.error("❌ Lỗi khi cập nhật người dùng:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
