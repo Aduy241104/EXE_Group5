@@ -1,6 +1,7 @@
 import React, { useEffect, useContext } from "react";
 import { AuthContext } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import api, { API } from "@/lib/api"; // ✅ dùng axios instance & base URL
 
 const GOOGLE_CLIENT_ID =
     "1085883031350-7ihbulo2h3oure1c75sv8rc939b89rl4.apps.googleusercontent.com";
@@ -38,31 +39,22 @@ export default function GoogleBtn() {
         alert(`Xin chào ${payload.name}! Đang gửi thông tin lên server...`);
 
         try {
-            const res = await fetch("http://localhost:5000/api/google/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    email: payload.email,
-                    name: payload.name,
-                    picture: payload.picture,
-                }),
+            const { data } = await api.post("/api/auth/google", {
+              id_token: token,                // ✅ gửi đúng id_token (Google JWT)
+              // Nếu BE của bạn đang nhận email/name/picture như cũ, vẫn có thể gửi kèm:
+              email: payload.email,
+              name: payload.name,
+              picture: payload.picture,
             });
-
-            const data = await res.json();
-
-            if (res.ok) {
-                console.log("✅ Server response:", data);
-                // localStorage.setItem("token", data.token);
-
-                logingg(data);
-
-                navigate("/");
+            if (data?.token) {
+              await logingg(data);           // ✅ đẩy vào AuthContext (giữ logic cũ)
+              navigate("/");
             } else {
-                alert(`❌ Lỗi: ${data.error || "Đăng nhập thất bại"}`);
+              alert(`❌ Lỗi: ${data?.error || "Đăng nhập thất bại"}`);
             }
         } catch (err) {
-            console.error("❌ Lỗi khi gửi dữ liệu:", err);
-            alert("Lỗi khi kết nối server!");
+            console.error("❌ Google login error:", err?.response?.data || err);
+            alert(err?.response?.data?.error || "Không thể đăng nhập Google");
         }
     };
 

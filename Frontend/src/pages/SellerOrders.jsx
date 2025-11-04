@@ -1,180 +1,228 @@
-// src/pages/SellerOrders.jsx
 import api from "@/lib/api";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useContext, useEffect, useState } from "react";
+import { AuthContext } from "@/context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { Package, User2, BadgeDollarSign, Hash, CalendarClock } from "lucide-react";
+import {
+  Loader2,
+  RefreshCcw,
+  Eye,
+  PackageCheck,
+  XCircle,
+  CheckCircle,
+  Truck,
+  X,
+} from "lucide-react";
+import toast from "react-hot-toast";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
-const PLACEHOLDER = "/logo.png";
-const fmtVND = (n)=>new Intl.NumberFormat("vi-VN",{style:"currency",currency:"VND"}).format(Number(n||0));
-
-const STATUS_OPTIONS = [
-  { value: "pending", label: "Chờ xác nhận" },
-  { value: "confirmed", label: "Đã xác nhận" },
-  { value: "shipped", label: "Đang giao" },
-  { value: "completed", label: "Hoàn tất" },
-  { value: "canceled", label: "Đã hủy" },
-];
-const STATUS_CLASS = {
-  pending:"bg-amber-100 text-amber-700 ring-1 ring-amber-200",
-  confirmed:"bg-sky-100 text-sky-700 ring-1 ring-sky-200",
-  shipped:"bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200",
-  completed:"bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200",
-  canceled:"bg-rose-100 text-rose-700 ring-1 ring-rose-200",
+const STATUS_LABEL = {
+  pending: "⏳ Chờ xác nhận",
+  confirmed: "✅ Đã xác nhận",
+  shipped: "🚚 Đang giao",
+  completed: "🎉 Hoàn tất",
+  canceled: "❌ Đã hủy",
 };
 
-// === Chuẩn hoá ảnh: http(s) | "/uploads/..." | "uploads/..." | "products/..." | filename
-const normalizeImg = (raw) => {
-  if (!raw) return PLACEHOLDER;
-  let s = String(raw).replace(/\\/g, "/");
-  if (/^https?:\/\//i.test(s)) return s;
-  s = s.replace(/^\/?uploads\//i, "");
-  if (!/^[^/]+\/[^/]+/.test(s)) s = `products/${s}`;
-  return `${API}/uploads/${s}`;
+const STATUS_COLOR = {
+  pending: "text-amber-500",
+  confirmed: "text-blue-500",
+  shipped: "text-cyan-500",
+  completed: "text-green-600",
+  canceled: "text-red-500",
 };
-
-const calcTotal = (items=[]) => items.reduce((sum,it)=>sum+Number(it.price||0)*Number(it.quantity||1),0);
 
 export default function SellerOrders() {
-  const [orders,setOrders]=useState([]); const [loading,setLoading]=useState(true);
-  const [savingId,setSavingId]=useState(null); const [openMenuFor,setOpenMenuFor]=useState(null);
-  const pageSize=15; const [page,setPage]=useState(1);
-  const menuRef=useRef(null);
+  const { token } = useContext(AuthContext);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [details, setDetails] = useState([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
-  useEffect(()=> {
-    const onDoc=(e)=>{ if(menuRef.current && !menuRef.current.contains(e.target)) setOpenMenuFor(null); };
-    document.addEventListener("mousedown",onDoc); return ()=>document.removeEventListener("mousedown",onDoc);
-  },[]);
-
-  useEffect(()=> {
-    (async ()=>{
-      try { const {data}=await api.get("/api/orders/seller"); setOrders(data||[]); }
-      catch { /* toast/alert tuỳ bạn */ }
-      finally { setLoading(false); }
-    })();
-  },[]);
-
-  const sorted = useMemo(()=>[...orders].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)),[orders]);
-  const totalPages = Math.max(1, Math.ceil(sorted.length/pageSize));
-  const paged = useMemo(()=>sorted.slice((page-1)*pageSize,(page-1)*pageSize+pageSize),[sorted,page]);
-  const currentLabel = (st)=> STATUS_OPTIONS.find(s=>s.value===st)?.label || st;
-
-  const updateStatus = async (orderId,newStatus) => {
+  const fetchOrders = async () => {
     try {
-      setSavingId(orderId);
-      await api.put(`/api/orders/${orderId}/status`, { status:newStatus });
-      setOrders(prev=>prev.map(o=> o.order_id===orderId?{...o,status:newStatus}:o));
-      setOpenMenuFor(null);
-      window.dispatchEvent(new CustomEvent("order-status-updated"));
-    } finally { setSavingId(null); }
+      const { data } = await api.get("/api/seller/orders", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setOrders(data);
+    } catch {
+      toast.error("Không thể tải đơn hàng");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (loading) return <p className="text-center mt-10">Đang tải...</p>;
-  if (!orders.length) return <p className="text-center mt-10">Chưa có đơn bán nào.</p>;
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const updateStatus = async (id, status) => {
+    try {
+      await api.patch(
+        `/api/seller/orders/${id}/status`,
+        { status },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success("✅ Cập nhật trạng thái thành công!");
+      fetchOrders();
+    } catch {
+      toast.error("Không thể cập nhật đơn");
+    }
+  };
+
+  const openDetail = async (orderId) => {
+    setSelected(orderId);
+    setLoadingDetail(true);
+    try {
+      const { data } = await api.get(`/api/seller/orders/${orderId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setDetails(data);
+    } catch {
+      toast.error("Không thể tải chi tiết đơn hàng");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const closeModal = () => {
+    setSelected(null);
+    setDetails([]);
+  };
+
+  if (loading)
+    return (
+      <div className="flex justify-center items-center h-80 text-gray-500">
+        <Loader2 className="animate-spin w-6 h-6 mr-2" /> Đang tải đơn hàng...
+      </div>
+    );
 
   return (
-    <div className="container mx-auto px-6 py-8 pb-20">
-      <h1 className="text-2xl font-bold mb-6">💼 Đơn hàng từ sản phẩm bạn bán</h1>
+    <div className="max-w-6xl mx-auto px-4 py-10">
+      <h1 className="text-3xl font-bold text-orange-600 mb-8 flex items-center gap-2">
+        🧾 Quản lý đơn bán
+      </h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
-        {paged.map((o)=> {
-          const first=o.items?.[0];
-          const img=normalizeImg(first?.image_url||o.product?.image_url);
-          const name= o.product?.name || first?.product_name || "Sản phẩm";
-          const total= o.total_price ?? calcTotal(o.items);
-
-          return (
-            <article key={o.order_id} className="group bg-white shadow-sm hover:shadow-md transition rounded-xl overflow-hidden ring-1 ring-gray-100">
-              <div className="relative w-full aspect-square overflow-hidden">
-                <img
-                  src={img}
-                  alt={name}
-                  className="w-full h-full object-cover group-hover:scale-[1.02] transition"
-                  onError={(e)=>{e.currentTarget.onerror=null; e.currentTarget.src=PLACEHOLDER;}}
-                />
-                <span className={`absolute top-3 left-3 text-xs px-2 py-1 rounded-full ${STATUS_CLASS[o.status]||STATUS_CLASS.pending}`}>
-                  {currentLabel(o.status)}
-                </span>
-
-                <div className="absolute top-3 right-3" ref={menuRef}>
-                  <div className="relative">
-                    <button
-                      onClick={()=>setOpenMenuFor(id=>id===o.order_id?null:o.order_id)}
-                      className="px-2 py-1 rounded bg-white/90 border text-xs hover:bg-white shadow-sm"
-                      disabled={savingId===o.order_id}
-                    >
-                      {savingId===o.order_id ? "Đang lưu..." : "Đổi trạng thái"}
-                    </button>
-                    <AnimatePresence>
-                      {openMenuFor===o.order_id && (
-                        <motion.ul
-                          initial={{opacity:0,y:-8,scale:0.98}}
-                          animate={{opacity:1,y:4,scale:1}}
-                          exit={{opacity:0,y:-8,scale:0.98}}
-                          transition={{duration:.15}}
-                          className="absolute right-0 z-20 mt-2 w-48 bg-white border rounded-lg shadow-lg overflow-hidden"
-                        >
-                          {STATUS_OPTIONS.map(opt=>(
-                            <li key={opt.value}>
-                              <button
-                                onClick={()=>updateStatus(o.order_id,opt.value)}
-                                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${opt.value===o.status?"font-semibold text-orange-600":""}`}
-                              >
-                                {opt.label}
-                              </button>
-                            </li>
-                          ))}
-                        </motion.ul>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 space-y-2">
-                <h2 className="font-semibold text-base line-clamp-1">{name}</h2>
-                <ul className="text-sm space-y-1">
-                  <li className="flex items-center gap-2">
-                    <User2 className="w-4 h-4 text-gray-600"/>
-                    <span className="font-medium">Người mua:</span>
-                    <span className="truncate">{o.buyer_name || o.buyer?.name || "-"}</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Package className="w-4 h-4 text-indigo-600"/>
-                    <span className="font-medium">Số sản phẩm:</span>
-                    <span>{o.items?.length || 1}</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <BadgeDollarSign className="w-4 h-4 text-emerald-600"/>
-                    <span className="font-medium">Tổng tiền:</span>
-                    <span>{fmtVND(total)}</span>
-                  </li>
-                </ul>
-                <p className="text-xs text-gray-400 flex items-center gap-2">
-                  <CalendarClock className="w-4 h-4"/>
-                  Đặt lúc: {new Date(o.created_at).toLocaleString("vi-VN")}
+      {orders.length === 0 ? (
+        <p className="text-gray-500 text-center py-10">
+          Bạn chưa có đơn hàng nào.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {orders.map((o) => (
+            <motion.div
+              key={o.id}
+              whileHover={{ scale: 1.01 }}
+              className="bg-white rounded-xl shadow border p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"
+            >
+              <div>
+                <p className="font-semibold text-gray-800">
+                  Mã đơn: <span className="text-gray-600">{o.id}</span>
                 </p>
-                <div className="pt-1">
-                  <Link to={`/orders/${o.order_id}`} className="inline-flex items-center gap-2 px-3 py-1.5 rounded border hover:bg-gray-50 text-sm">
-                    <Hash className="w-4 h-4" /> Chi tiết
-                  </Link>
-                </div>
+                <p className="text-sm text-gray-500">
+                  Người mua: {o.buyer_name} ({o.buyer_phone})
+                </p>
+                <p className={`font-medium ${STATUS_COLOR[o.status]} mt-1`}>
+                  {STATUS_LABEL[o.status]}
+                </p>
+                <p className="text-sm text-gray-400">
+                  Tổng: {Number(o.total_amount).toLocaleString()} ₫
+                </p>
               </div>
-            </article>
-          );
-        })}
-      </div>
 
-      {totalPages>1 && (
-        <div className="mt-6 flex items-center justify-center gap-2">
-          <button disabled={page===1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="px-3 py-1 rounded border disabled:opacity-50">«</button>
-          {Array.from({length:totalPages}).map((_,i)=>(
-            <button key={i} onClick={()=>setPage(i+1)} className={`px-3 py-1 rounded border ${page===i+1?"bg-orange-500 text-white border-orange-500":""}`}>{i+1}</button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => openDetail(o.id)}
+                  className="px-3 py-1 border rounded text-gray-600 hover:bg-gray-50 flex items-center gap-1"
+                >
+                  <Eye size={16} /> Xem
+                </button>
+                <button
+                  onClick={() => updateStatus(o.id, "confirmed")}
+                  className="px-3 py-1 border rounded text-blue-600 hover:bg-blue-50 flex items-center gap-1"
+                >
+                  <CheckCircle size={16} /> Xác nhận
+                </button>
+                <button
+                  onClick={() => updateStatus(o.id, "shipped")}
+                  className="px-3 py-1 border rounded text-cyan-600 hover:bg-cyan-50 flex items-center gap-1"
+                >
+                  <Truck size={16} /> Giao hàng
+                </button>
+                <button
+                  onClick={() => updateStatus(o.id, "completed")}
+                  className="px-3 py-1 border rounded text-green-600 hover:bg-green-50 flex items-center gap-1"
+                >
+                  <PackageCheck size={16} /> Hoàn tất
+                </button>
+                <button
+                  onClick={() => updateStatus(o.id, "canceled")}
+                  className="px-3 py-1 border rounded text-red-600 hover:bg-red-50 flex items-center gap-1"
+                >
+                  <XCircle size={16} /> Hủy
+                </button>
+              </div>
+            </motion.div>
           ))}
-          <button disabled={page===totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))} className="px-3 py-1 rounded border disabled:opacity-50">»</button>
         </div>
       )}
+
+      {/* Modal chi tiết */}
+      <AnimatePresence>
+        {selected && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex justify-center items-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-xl shadow-lg w-full max-w-2xl p-6 relative"
+            >
+              <button
+                onClick={closeModal}
+                className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+              <h2 className="text-xl font-semibold mb-4">
+                Chi tiết đơn hàng #{selected}
+              </h2>
+
+              {loadingDetail ? (
+                <div className="flex justify-center py-10 text-gray-500">
+                  <Loader2 className="animate-spin w-5 h-5 mr-2" /> Đang tải...
+                </div>
+              ) : details.length === 0 ? (
+                <p className="text-gray-500">Không có dữ liệu.</p>
+              ) : (
+                <div className="space-y-2">
+                  {details.map((d, i) => (
+                    <div
+                      key={i}
+                      className="flex justify-between border-b py-2 text-sm"
+                    >
+                      <span>{d.product_name}</span>
+                      <span>
+                        {d.quantity} × {Number(d.price).toLocaleString()} ₫
+                      </span>
+                    </div>
+                  ))}
+                  <p className="text-right font-bold text-gray-700 mt-4">
+                    Tổng:{" "}
+                    {details
+                      .reduce((s, x) => s + Number(x.subtotal || 0), 0)
+                      .toLocaleString()}{" "}
+                    ₫
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

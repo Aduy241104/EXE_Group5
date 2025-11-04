@@ -44,3 +44,78 @@ body {
 .read-the-docs {
   color: #888;
 }
+
+/* === Custom Scrollbar – kiểu Messenger / Zalo === */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4); /* gray-400/40 */
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.7);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* === Scroll mượt cho mọi vùng chat === */
+html, body, * {
+  scroll-behavior: smooth;
+}
+
+/* === Fix vùng chat & bubble === */
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+/* bubble mềm hơn, giống Messenger */
+.bubble {
+  transition: all 0.18s ease;
+}
+.bubble:hover {
+  filter: brightness(0.97);
+}
+
+/* avatar nhỏ sát đáy bubble */
+.msg-avatar {
+  align-self: flex-end;
+}
+
+/* composer shadow & bo tròn đẹp hơn */
+.composer {
+  background: white;
+  border-top: 1px solid #f1f5f9; /* slate-100 */
+  box-shadow: 0 -1px 2px rgba(0,0,0,0.03);
+}
+
+/* input trong composer */
+.composer input[type="text"] {
+  font-size: 15px;
+  padding: 12px 18px;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0; /* slate-200 */
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.composer input[type="text"]:focus {
+  border-color: #fb923c;
+  box-shadow: 0 0 0 2px #fed7aa; /* orange-200 */
+}
+
+/* send button */
+.btn-send {
+  background-color: #f97316;
+  color: white;
+  border-radius: 9999px;
+  transition: background-color 0.15s;
+}
+.btn-send:hover {
+  background-color: #ea580c;
+}

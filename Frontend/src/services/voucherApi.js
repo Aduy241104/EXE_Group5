@@ -29,3 +29,13 @@ export function adminDeleteVoucher(id) {
 export function adminAssignVoucher(id, { seller_id, issued_count }) {
   return api.post(`/api/vouchers/${id}/assign`, { seller_id, issued_count }).then(r => r.data);
 }
+
+export function checkVoucher({ code, context, base_fee, price, category }) {
+  return api.post("/api/vouchers/check", { code, context, base_fee, price, category })
+           .then(r => r.data);
+}
+
+export function applyVoucher({ code, context }) {
+  return api.post("/api/vouchers/apply", { code, context })
+           .then(r => r.data);
+}

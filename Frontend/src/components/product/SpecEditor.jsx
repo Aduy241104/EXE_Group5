@@ -1,65 +1,132 @@
-// src/components/product/SpecEditor.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus, Trash2, Info } from "lucide-react";
 
 /**
- * SpecEditor – UI nhập thuộc tính sản phẩm
- * - Không thay đổi logic submit cũ của bạn.
- * - value: object hiện tại (nếu có), onChange: trả về object mới
- * - categoryId: để gợi ý bộ thuộc tính theo danh mục
+ * ✨ SpecEditor – Trình chỉnh sửa "Chi tiết sản phẩm" linh hoạt
+ * - Cho phép seller thêm / xoá / chỉnh sửa các thông tin tuỳ ý
+ * - Hỗ trợ gợi ý theo danh mục (categoryId)
+ * - Giao diện hiện đại, đồng bộ tone eStore (xanh lam chủ đạo)
  */
 export default function SpecEditor({ value = {}, onChange, categoryId }) {
-  const [specs, setSpecs] = useState(value || {});
-
-  // Gợi ý field theo danh mục (tùy biến thêm nếu cần)
-  const FIELD_BY_CATEGORY = {
-    // ví dụ: id danh mục Điện thoại
-    1: [
-      { key: "Tình trạng", placeholder: "Mới / Like new / Cũ" },
-      { key: "Bộ nhớ", placeholder: "128GB / 256GB ..." },
-      { key: "Màu sắc", placeholder: "Đen / Trắng ..." },
-      { key: "Bảo hành", placeholder: "Còn 6 tháng..." },
-    ],
-    // mặc định
-    default: [
-      { key: "Tình trạng", placeholder: "Mới / Đã dùng..." },
-      { key: "Mô tả chi tiết", placeholder: "Thông tin bổ sung..." },
-      { key: "Nguồn gốc", placeholder: "Cá nhân / Cửa hàng..." },
-    ],
-  };
-
-  const fields = useMemo(
-    () => FIELD_BY_CATEGORY[categoryId] || FIELD_BY_CATEGORY.default,
-    [categoryId]
+  const [fields, setFields] = useState(
+    Object.entries(value || {}).map(([key, val]) => ({ key, val }))
   );
 
+  // Gợi ý mặc định theo danh mục
   useEffect(() => {
-    // đồng bộ value từ cha
-    setSpecs(value || {});
-  }, [value]);
+    if (!categoryId) return;
+    const presets = getPresets(categoryId);
+    if (presets.length > 0 && fields.length === 0) {
+      setFields(presets.map((k) => ({ key: k, val: "" })));
+    }
+  }, [categoryId]);
 
-  const update = (k, v) => {
-    const next = { ...specs, [k]: v };
-    setSpecs(next);
-    onChange?.(next);
-  };
+  // Cập nhật ra ngoài
+  useEffect(() => {
+    const specs = {};
+    for (const f of fields) {
+      if (f.key.trim()) specs[f.key.trim()] = f.val.trim();
+    }
+    onChange?.(specs);
+  }, [fields]);
+
+  // Hành động
+  const updateField = (i, patch) =>
+    setFields((arr) =>
+      arr.map((f, idx) => (i === idx ? { ...f, ...patch } : f))
+    );
+  const addField = () => setFields((arr) => [...arr, { key: "", val: "" }]);
+  const removeField = (i) =>
+    setFields((arr) => arr.filter((_, idx) => idx !== i));
 
   return (
-    <div className="rounded-2xl border bg-white p-4 shadow-sm mt-4">
-      <h3 className="text-lg font-semibold text-gray-800 mb-3">🧾 Chi tiết sản phẩm</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {fields.map(({ key, placeholder }) => (
-          <div key={key}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{key}</label>
-            <input
-              type="text"
-              value={specs[key] || ""}
-              onChange={(e) => update(key, e.target.value)}
-              placeholder={placeholder}
-              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-400 outline-none"
-            />
-          </div>
-        ))}
+    <motion.div
+      layout
+      className="rounded-3xl border border-gray-100 bg-gradient-to-b from-white to-blue-50/30 p-5 shadow-sm hover:shadow-md transition"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <h2 className="font-bold text-gray-800 text-lg">
+            Chi tiết sản phẩm
+          </h2>
+          <Info className="w-4 h-4 text-blue-500" />
+        </div>
+        <button
+          type="button"
+          onClick={addField}
+          className="flex items-center gap-1 rounded-xl bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow hover:bg-blue-700 active:scale-[0.97] transition"
+        >
+          <Plus size={14} /> Thêm dòng
+        </button>
       </div>
-    </div>
+
+      {/* Nội dung */}
+      <AnimatePresence>
+        {fields.length === 0 ? (
+          <motion.p
+            key="hint"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="text-sm text-gray-500 italic mb-2"
+          >
+            Chưa có thông tin nào. Hãy thêm các dòng như “Tình trạng”, “Năm mua”, “Phụ kiện kèm”, v.v...
+          </motion.p>
+        ) : (
+          <motion.div layout className="space-y-2" transition={{ staggerChildren: 0.05 }}>
+            {fields.map((f, i) => (
+              <motion.div
+                key={i}
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.25 }}
+                className="grid grid-cols-5 gap-2 items-center group"
+              >
+                <input
+                  value={f.key}
+                  onChange={(e) => updateField(i, { key: e.target.value })}
+                  placeholder="Tên thông tin (VD: Hãng, Năm mua...)"
+                  className="col-span-2 rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition"
+                />
+                <input
+                  value={f.val}
+                  onChange={(e) => updateField(i, { val: e.target.value })}
+                  placeholder="Giá trị (VD: 2023, Còn mới 90%)"
+                  className="col-span-2 rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeField(i)}
+                  className="opacity-0 group-hover:opacity-100 transition text-red-500 hover:text-red-600 flex items-center justify-center"
+                  title="Xoá dòng"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
+}
+
+/* ===== Helper để sinh gợi ý theo danh mục ===== */
+function getPresets(categoryId) {
+  const presets = {
+    laptop: ["Hãng", "CPU", "RAM", "Ổ cứng", "Tình trạng"],
+    phone: ["Hãng", "Dung lượng", "Tình trạng", "Phụ kiện kèm"],
+    book: ["Tác giả", "Thể loại", "Tình trạng"],
+    furniture: ["Chất liệu", "Kích thước", "Tình trạng"],
+    bike: ["Loại xe", "Năm mua", "Tình trạng"],
+    fashion: ["Kích cỡ", "Màu sắc", "Tình trạng"],
+  };
+  return presets[categoryId] || [];
 }

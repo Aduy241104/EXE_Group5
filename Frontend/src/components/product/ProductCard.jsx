@@ -1,104 +1,124 @@
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { Heart, Trash2, Eye } from "lucide-react";
+import { imageSrc, money } from "@/components/product/ProductGrid";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const PLACEHOLDER = "/logo.png";
 
-const isAbs = (u) => /^https?:\/\//i.test(u || "");
-export const imageSrc = (p) => {
-  const raw =
-    p?.image_url ??
-    p?.image ??
-    p?.thumbnail ??
-    p?.images?.[0]?.url ??
-    p?.images?.[0]?.src ??
-    p?.images?.[0]?.filename ??
-    "";
-
-  if (!raw) return PLACEHOLDER;
-
-  // ✅ chuẩn hoá backslash -> slash để khớp mọi DB/OS
-  const s0 = String(raw).replace(/\\/g, "/");
-
-  if (isAbs(s0)) return s0;
-  if (s0.startsWith("/uploads/")) return `${API}${s0}`;
-  if (s0.startsWith("uploads/")) return `${API}/${s0}`;
-  return `${API}/uploads/${s0}`;
-};
-
-const money = (n) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-  }).format(Number(n || 0));
-
 export default function ProductCard({
-  product,
-  onToggleFavorite,
-  ownerView = false,
-  onDeleted,
-  onUpdated,
+  p,
+  idx = 0,
+  isAdmin = false,
+  favIds = new Set(),
+  onToggleFav = () => {},
+  onAdminDelete = () => {},
 }) {
-  const img = imageSrc(product);
+  // 🧩 Kiểm tra an toàn tránh crash
+  if (!p) return null;
 
-  const handleError = (e) => {
-    e.currentTarget.onerror = null;
-    e.currentTarget.src = PLACEHOLDER;
-  };
+  const rating = Number(p?.rating_avg ?? p?.rating ?? 0);
+  const sold = Number(p?.sold_count ?? p?.sold ?? 0);
 
   return (
-    <article className="group relative bg-white rounded-2xl shadow hover:shadow-md ring-1 ring-gray-100 overflow-hidden">
-      <Link to={`/products/${product.id}`}>
-        <div className="relative w-full aspect-[4/3] overflow-hidden">
-          <img
-            src={img}
-            alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-[1.02] transition"
-            onError={handleError}
-            loading="lazy"
-          />
-        </div>
-      </Link>
+    <motion.article
+      initial={{ opacity: 0, y: 16, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 16, scale: 0.97 }}
+      transition={{ duration: 0.25, delay: Math.min(idx * 0.03, 0.25) }}
+      className="group relative rounded-2xl bg-white shadow-md hover:shadow-xl hover:-translate-y-[4px] overflow-hidden ring-1 ring-gray-100 transition-all duration-500"
+    >
+      {/* Hình ảnh */}
+      <div className="relative w-full aspect-[4/3] overflow-hidden">
+        <img
+          src={imageSrc(p)}
+          alt={p?.name || "Sản phẩm"}
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
+          loading="lazy"
+        />
 
+        {/* Overlay fade */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          whileHover={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent flex flex-col justify-center items-center gap-3 opacity-0 group-hover:opacity-100"
+        >
+          {/* Nút Đặt ngay */}
+          <Link
+            to={`/products/${p.id}`}
+            className="px-6 py-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold shadow-lg hover:brightness-110 hover:shadow-xl transition-transform hover:scale-[1.05]"
+          >
+            Đặt ngay
+          </Link>
+
+          {/* Hai nút phụ */}
+          <div className="flex items-center gap-2">
+            <Link
+              to={`/products/${p.id}`}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/90 text-gray-700 text-sm font-medium hover:bg-blue-50 shadow-sm transition"
+            >
+              <Eye className="w-4 h-4" /> Xem chi tiết
+            </Link>
+            <button
+              onClick={() => onToggleFav(p)}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium shadow-sm transition ${
+                favIds.has(p.id)
+                  ? "bg-pink-100 text-pink-600"
+                  : "bg-white/90 text-gray-700 hover:bg-pink-50"
+              }`}
+            >
+              <Heart
+                className={`w-4 h-4 ${
+                  favIds.has(p.id) ? "fill-pink-500 text-pink-500" : ""
+                }`}
+              />
+              Yêu thích
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Admin delete */}
+        {isAdmin && (
+          <button
+            title="Xoá sản phẩm vi phạm"
+            onClick={() => onAdminDelete(p)}
+            className="absolute top-2 right-2 flex items-center gap-1 text-[12px] px-2 py-1 rounded bg-white/95 border text-rose-600 hover:bg-rose-50 shadow"
+          >
+            <Trash2 className="w-4 h-4" /> Xoá
+          </button>
+        )}
+      </div>
+
+      {/* Thông tin */}
       <div className="p-4">
         <Link
-          to={`/products/${product.id}`}
-          className="font-semibold line-clamp-1 hover:underline"
+          to={`/products/${p.id}`}
+          className="block font-semibold text-gray-800 text-[15px] line-clamp-2 hover:text-blue-600 transition"
+          title={p?.name || "Sản phẩm"}
         >
-          {product.name}
+          {p?.name || "Sản phẩm chưa rõ"}
         </Link>
-        <div className="mt-1 text-orange-600 font-bold">
-          {money(product.price)}
+
+        <div className="mt-2 text-blue-700 font-bold text-lg">
+          {money(p?.price ?? 0)}
         </div>
 
-        {/* các nút tuỳ trang (giữ contract cũ nếu có) */}
-        <div className="mt-3 flex items-center gap-2">
-          {onToggleFavorite && (
-            <button
-              className="px-3 py-1.5 rounded-full border text-sm hover:bg-gray-50"
-              onClick={() => onToggleFavorite(product.id)}
+        {/* Rating */}
+        <div className="mt-2 flex items-center gap-1 text-sm text-gray-500">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <span
+              key={i}
+              className={`text-[16px] ${
+                i < Math.round(rating) ? "text-yellow-400" : "text-gray-300"
+              }`}
             >
-              Bỏ thích
-            </button>
-          )}
-
-          {ownerView && (
-            <>
-              <Link
-                to={`/products/${product.id}/edit`}
-                className="px-3 py-1.5 rounded-full border text-sm hover:bg-gray-50"
-              >
-                Sửa
-              </Link>
-              <button
-                className="px-3 py-1.5 rounded-full border text-sm text-rose-600 hover:bg-rose-50"
-                onClick={() => onDeleted?.(product.id)}
-              >
-                Xoá
-              </button>
-            </>
-          )}
+              ★
+            </span>
+          ))}
+          <span className="ml-1 text-gray-600 text-[13px]">({sold || 1})</span>
         </div>
       </div>
-    </article>
+    </motion.article>
   );
 }

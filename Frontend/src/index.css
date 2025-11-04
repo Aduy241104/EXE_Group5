@@ -52,3 +52,27 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Tắt highlight xanh khi tap trên iOS */
+.ios-tap { -webkit-tap-highlight-color: transparent; }
+
+/* Chỉ apply backdrop-blur nếu trình duyệt hỗ trợ */
+.supports-blur\:backdrop-blur-md {
+  backdrop-filter: blur(12px);
+}
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .supports-blur\:backdrop-blur-md { backdrop-filter: none; }
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .motion-safe\:opacity-100,
+  .motion-safe\:opacity-0,
+  .motion-safe\:translate-y-0,
+  .motion-safe\:-translate-y-2,
+  .motion-safe\:scale-100,
+  .motion-safe\:scale-\[0\.98\] {
+    transition: none !important;
+    transform: none !important;
+  }
+}

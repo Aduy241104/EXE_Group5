@@ -38,7 +38,6 @@ export const login = async (req, res) => {
   }
 };
 
-
 // REGISTER
 export const register = async (req, res) => {
   const { email, password, username, phone } = req.body;

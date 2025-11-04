@@ -1,15 +1,16 @@
 // src/components/product/SellerCard.jsx
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 import {
   MapPin,
-  MessageCircle,
   PackageCheck,
   Phone,
   ShieldCheck,
   Star,
+  MessageCircle,
 } from "lucide-react";
+import { motion } from "framer-motion";
+import api from "@/lib/api";
 
-/* ---------- Utils (giữ cách build ảnh y như ProductDetail) ---------- */
 const API =
   import.meta.env.VITE_API ||
   import.meta.env.VITE_API_URL ||
@@ -21,69 +22,92 @@ const buildImg = (u) => {
   return `${API}/${String(u).replace(/^\/+/, "")}`;
 };
 
-/* ---------- Seller card (y nguyên logic trước đó) ---------- */
 export default function SellerCard({ seller, reviewStats }) {
-  const avg = Number(
-    (reviewStats && reviewStats.avg) ??
-      seller?.avg_rating ??
-      0
-  );
-  const total = Number(
-    (reviewStats && reviewStats.count) ??
-      seller?.reviews_count ??
-      0
-  );
+  const [address, setAddress] = useState("Đang tải địa chỉ...");
+
+  useEffect(() => {
+    if (!seller?.id) return;
+    (async () => {
+      try {
+        const { data } = await api.get(`/api/users/${seller.id}/addresses`);
+        const defaultAddr =
+          data.find((a) => a.is_default)?.address_line ||
+          data[0]?.address_line ||
+          "Địa chỉ chưa cập nhật";
+        setAddress(defaultAddr);
+      } catch {
+        setAddress("Không thể tải địa chỉ");
+      }
+    })();
+  }, [seller?.id]);
+
+  const avg =
+    Number((reviewStats && reviewStats.avg) ?? seller?.avg_rating ?? 0);
+  const total =
+    Number((reviewStats && reviewStats.count) ?? seller?.reviews_count ?? 0);
 
   return (
-    <div className="rounded-2xl border bg-orange-50/40 p-5 shadow-inner">
-      <div className="mb-3 flex items-center gap-3">
-        <img
+    <motion.div
+      className="rounded-2xl bg-gradient-to-b from-white via-blue-50/30 to-blue-100/20 ring-1 ring-gray-100 p-5 shadow-sm hover:shadow-md transition-all"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-4">
+        <motion.img
           src={buildImg(seller?.avatar_url)}
-          className="h-14 w-14 rounded-full border-2 border-amber-300 object-cover"
-          onError={(e) => (e.currentTarget.src = "/logo.png")}
+          alt="Seller Avatar"
+          className="h-16 w-16 rounded-full border-2 border-blue-300 object-cover shadow-sm"
         />
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Link to={`/profile/${seller?.id}`} className="truncate text-lg font-semibold text-gray-800 hover:text-orange-600">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1">
+            <h3 className="truncate text-lg font-semibold text-gray-800">
               {seller?.username || "Người bán"}
-            </Link>
-            <ShieldCheck className="h-4 w-4 text-emerald-600" title="Đã xác minh" />
+            </h3>
+            {seller?.verified && (
+              <ShieldCheck
+                className="h-4 w-4 text-emerald-600"
+                title="Đã xác minh"
+              />
+            )}
           </div>
-          <div className="text-sm text-gray-600 flex items-center gap-2">
-            <Phone className="h-4 w-4 text-orange-500" />
-            <span>{seller?.phone || "Chưa có số"}</span>
+          <div className="flex items-center gap-1 text-sm text-gray-600">
+            <Phone className="h-4 w-4 text-blue-500" />
+            <span>{seller?.phone || "Chưa có số điện thoại"}</span>
           </div>
+        </div>
+        <div className="text-right">
+          <div className="flex items-center justify-end gap-1">
+            <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
+            <span className="font-semibold text-gray-800">
+              {avg.toFixed(1)}/5
+            </span>
+          </div>
+          <div className="text-[12px] text-gray-500">({total} đánh giá)</div>
         </div>
       </div>
 
-      <div className="grid gap-2 text-sm text-gray-700 md:grid-cols-2 lg:grid-cols-3">
+      {/* Stats */}
+      <div className="grid sm:grid-cols-2 gap-2 text-sm text-gray-700 mb-3">
         <div className="flex items-center gap-2">
-          <MessageCircle className="h-4 w-4 text-orange-500" />
-          Tỉ lệ phản hồi: <b>{Math.round(Number(seller?.response_rate || 0))}%</b>
+          <MessageCircle className="h-4 w-4 text-blue-500" />
+          Phản hồi: <b>{Math.round(Number(seller?.response_rate || 0))}%</b>
         </div>
         <div className="flex items-center gap-2">
-          <PackageCheck className="h-4 w-4 text-orange-500" />
-          Tốc độ phản hồi: <b>{Math.round((seller?.response_time_sec || 0) / 60)} phút</b>
-        </div>
-        <div className="flex items-center gap-2">
-          <Star className="h-4 w-4 text-yellow-500" />
-          Đánh giá trung bình: <b>{avg.toFixed(1)}/5</b>
-          <span className="text-gray-500">({total})</span>
-        </div>
-        <div className="md:col-span-2 lg:col-span-3 mt-1 flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-orange-500" />
-          <span>{seller?.address || "Địa chỉ: chưa cập nhật"}</span>
+          <PackageCheck className="h-4 w-4 text-blue-500" />
+          Tốc độ:{" "}
+          <b>
+            {Math.round((seller?.response_time_sec || 0) / 60) || "<1"} phút
+          </b>
         </div>
       </div>
 
-      <div className="mt-3 flex gap-2">
-        <Link to={`/profile/${seller?.id}`} className="rounded-xl border border-orange-400 px-4 py-2 text-orange-600 hover:bg-orange-50">
-          Xem hồ sơ
-        </Link>
-        <Link to="/messages" className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 px-4 py-2 font-semibold text-white hover:from-orange-600 hover:to-amber-500">
-          Nhắn tin
-        </Link>
+      {/* Address */}
+      <div className="flex items-start gap-2 text-gray-700 text-sm">
+        <MapPin className="h-4 w-4 text-blue-500 mt-[2px]" />
+        <div className="leading-snug">{address}</div>
       </div>
-    </div>
+    </motion.div>
   );
 }

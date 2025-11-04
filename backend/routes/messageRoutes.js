@@ -1,59 +1,41 @@
+// backend/routes/messageRoutes.js
 import express from "express";
-import multer from "multer";
-import path from "path";
-import { fileURLToPath } from "url";
-import fs from "fs";
-
 import { authMiddleware } from "../middleware/authMiddleware.js";
 import {
   ensureDMConversation,
   listConversations,
   listMessages,
   sendMessage,
-  markRead
+  markRead,
 } from "../controllers/messageController.js";
 
 const router = express.Router();
 
-// Multer cấu hình riêng cho ảnh chat (lưu chung /uploads)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const uploadDir = path.join(__dirname, "..", "uploads");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9) + ext;
-    cb(null, unique);
-  },
-});
-const upload = multer({ storage });
-
+// BẮT BUỘC đăng nhập cho toàn bộ message APIs
 router.use(authMiddleware);
 
-// (upload ảnh chat) -> trả { filename, url }
-router.post("/upload", upload.single("image"), (req, res) => {
-  const filename = req.file?.filename || null;
-  if (!filename) return res.status(400).json({ error: "No file" });
-  const url = `${process.env.BASE_URL || "http://localhost:5000"}/uploads/${filename}`;
-  res.json({ filename, url });
-});
-
-// ensure/generate conversation 1-1
+// Tạo/đảm bảo hội thoại 1-1
+// POST /api/messages/ensure  { other_user_id }
 router.post("/ensure", ensureDMConversation);
 
-// list conversations
+// Danh sách hội thoại của tôi
+// GET /api/messages/conversations
 router.get("/conversations", listConversations);
 
-// list messages by conversation
+// Danh sách tin nhắn (có phân trang)
+// GET /api/messages/conversations/:id/messages?before_id=&limit=
 router.get("/conversations/:id/messages", listMessages);
 
-// send message (text/image_url filename)
+// Gửi tin nhắn theo REST kiểu mới (theo conversation param)
+// POST /api/messages/conversations/:id/messages
 router.post("/conversations/:id/messages", sendMessage);
 
-// mark read to last_message_id
+// Alias để khớp FE cũ: POST /api/messages/send
+// body: { conversation_id, content, image_url? }
+router.post("/send", sendMessage);
+
+// Đánh dấu đã đọc đến last_message_id
+// POST /api/messages/conversations/:id/read  { last_message_id }
 router.post("/conversations/:id/read", markRead);
 
 export default router;
